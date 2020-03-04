@@ -2,6 +2,11 @@ import abc
 import queue
 from threading import Thread
 import datetime
+from enum import Enum
+
+class PortNames(Enum):
+  DOWN = 1
+  UP = 2
 
 def singleton(cls):
   instance = [None]
@@ -33,17 +38,14 @@ class ComponentRegistry():
     key = componentname + str(componentinstancenumber)
     return self.components[key]
 
-  def linkComponents(self, up, down):
-    up.downout = down
-    down.upout = up
+  def printComponents(self):
+    for itemkey in self.components:
+      cmp = self.components[itemkey]
+      print(f"I am {cmp.componentname}.{cmp.componentinstancenumber}")
+      for i in cmp.ports:
+        connectedcmp = cmp.ports[i]
+        print(f"\t{i} {connectedcmp.componentname}.{connectedcmp.componentinstancenumber}")
 
-  def linkComponentsbyKey(self, upcomponentname, upcomponentinstancenumber, downcomponentname, downcomponentinstancenumber):
-    upkey = upcomponentname + str(upcomponentinstancenumber)
-    downkey = downcomponentname + str(downcomponentinstancenumber)
-    up = self.components[upkey]
-    down = self.components[downkey]
-    up.downout = down
-    down.upout = up
 
 class Event:
   def __init__(self, caller, event, content):
@@ -54,13 +56,16 @@ class Event:
 
 class GenericComponentModel(abc.ABC):
   eventhandlers = {}
+  ports = {}
 
   def __init__(self, componentname, componentinstancenumber, handlerdict={}, ports={}, num_worker_threads=1):
     self.inputqueue = queue.Queue()
     self.componentname = componentname
     self.componentinstancenumber = componentinstancenumber
-    self.upout = None
-    self.downout = None
+
+    # TODO: check if something to be done
+    for port in ports:
+      self.ports[port] = ports[port]
 
     for ev in handlerdict:
       self.eventhandlers[ev] = handlerdict[ev]
@@ -73,11 +78,15 @@ class GenericComponentModel(abc.ABC):
       t.daemon = True
       t.start()
 
+  def connectTo(self, name, component):
+    self.ports[name] = component
+
   def worker(self):
     while True:
       workitem = self.inputqueue.get()
       if workitem.event in self.eventhandlers:
-        print(f"I am {self.eventhandlers[workitem.event]}: {workitem.caller.componentname} called me at {workitem.time}")
+        print(
+          f"I am {self.eventhandlers[workitem.event]}: {workitem.caller.componentname} called me at {workitem.time}")
         self.eventhandlers[workitem.event](self, eventobj=workitem)  # call the handler
       else:
         print(f"Event Handler: {workitem.event} is not implemented")
@@ -85,3 +94,6 @@ class GenericComponentModel(abc.ABC):
 
   def trigger_event(self, eventobj: Event):
     self.inputqueue.put_nowait(eventobj)
+
+class GenericChannel(GenericComponentModel):
+  pass
