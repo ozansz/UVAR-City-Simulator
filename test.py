@@ -1,127 +1,139 @@
-from Ahc import GenericComponentModel
-from Ahc import Event
-from Ahc import ComponentRegistry
-import threading
-from Ahc import PortNames
+from Ahc import GenericComponentModel, Event, ComponentRegistry, PortNames, P2PFIFOChannel
 import time
+import threading
 
 registry = ComponentRegistry()
 
-class ApplicationLayerComponent(GenericComponentModel):
-  ports = {}
+class ApplicationLayerComponent( GenericComponentModel ):
+    def onMessageFromBottom(self, eventobj: Event):
+        print(f"{self.componentname}.{self.componentinstancenumber}: Gotton message {eventobj.content.value}")
+        value = eventobj.content.value
+        value += 1
+        newmsg = MessageContent( value )
+        myevent = Event( self, "agree", newmsg )
+        self.trigger_event(myevent)
 
-  def onMessage(self, eventobj: Event):
-    myevent = Event(self, "message", "content")
-    if self.upout:
-      self.upout.trigger_event(myevent)
-    if self.downout:
-      self.downout.trigger_event(myevent)
+    def onAgree(self, eventobj: Event):
+        myevent = Event( self, "messagefromtop", eventobj.content )
+        self.ports[PortNames.DOWN].trigger_event(myevent)
 
-  def onTimerExpired(self, eventobj: Event):
-    pass
+    def onTimerExpired(self, eventobj: Event):
+        pass
 
-  handlerdict = {
-    "message": onMessage,
-    "timerexpired": onTimerExpired
-  }
+    handlerdict = {
+        "messagefrombottom": onMessageFromBottom,
+        "agree": onAgree,
+        "timerexpired": onTimerExpired
+    }
 
-  def __init__(self, componentname, componentid):
-    super().__init__(componentname, componentid, self.handlerdict, self.ports)
+    def __init__(self, componentname, componentid):
+        super().__init__( componentname, componentid, self.handlerdict )
 
-class NetworkLayerComponent(GenericComponentModel):
-  ports = {}
 
-  def onMessage(self, eventobj: Event):
-    myevent = Event(self, "message", "content")
-    if self.upout:
-      self.upout.trigger_event(myevent)
-    if self.downout:
-      self.downout.trigger_event(myevent)
+class NetworkLayerComponent( GenericComponentModel ):
+    def onMessageFromTop(self, eventobj: Event):
+        myevent = Event( self, "messagefromtop", eventobj.content )
+        self.ports[PortNames.DOWN].trigger_event(myevent)
 
-  def onTimerExpired(self, eventobj: Event):
-    pass
+    def onMessageFromBottom(self, eventobj: Event):
+        myevent = Event( self, "messagefrombottom", eventobj.content )
+        self.ports[PortNames.UP].trigger_event(myevent)
 
-  handlerdict = {
-    "message": onMessage,
-    "timerexpired": onTimerExpired
-  }
+    def onTimerExpired(self, eventobj: Event):
+        pass
 
-#  def __init__(self, componentname, componentid):
-#    super().__init__(componentname, componentid, self.handlerdict, self.ports)
+    handlerdict = {
+        "messagefromtop": onMessageFromTop,
+        "messagefrombottom": onMessageFromBottom,
+        "timerexpired": onTimerExpired
+    }
 
-class LinkLayerComponent(GenericComponentModel):
-  ports = {}
+    def __init__(self, componentname, componentid):
+        super().__init__( componentname, componentid, self.handlerdict )
 
-  def onMessage(self, eventobj: Event):
-    myevent = Event(self, "message", "content")
-    if self.upout:
-      self.upout.trigger_event(myevent)
-    if self.downout:
-      self.downout.trigger_event(myevent)
 
-  def onTimerExpired(self, eventobj: Event):
-    pass
+class LinkLayerComponent( GenericComponentModel ):
+    def onMessageFromTop(self, eventobj: Event):
+        myevent = Event( self, "messagefromtop", eventobj.content )
+        self.ports[PortNames.DOWN].trigger_event(myevent)
 
-  handlerdict = {
-    "message": onMessage,
-    "timerexpired": onTimerExpired
-  }
+    def onMessageFromBottom(self, eventobj: Event):
+        myevent = Event( self, "messagefrombottom", eventobj.content )
+        self.ports[PortNames.UP].trigger_event(myevent)
 
-  def __init__(self, componentname, componentid):
-    super().__init__(componentname, componentid, self.handlerdict, self.ports)
+    def onTimerExpired(self, eventobj: Event):
+        pass
 
-class CompositeComponent(GenericComponentModel):
+    handlerdict = {
+        "messagefromtop": onMessageFromTop,
+        "messagefrombottom": onMessageFromBottom,
+        "timerexpired": onTimerExpired
+    }
 
-  def onMessage(self, eventobj: Event):
-    myevent = Event(self, "internalmessage", "content")
-    self.ports[PortNames.UP].trigger_event(myevent)
+    def __init__(self, componentname, componentid):
+        super().__init__( componentname, componentid, self.handlerdict )
 
-  def onInternalMessage(self, eventobj: Event):
-    print(f"I am {self.componentname}: {eventobj.caller.componentname} called me at {eventobj.time}")
-    myevent = Event(self, "message", "content")
-    self.ports[PortNames.DOWN].trigger_event(myevent)
 
-  handlerdict = {
-    "message": onMessage,
-    "internalmessage": onInternalMessage
-  }
+class CompositeComponent( GenericComponentModel ):
 
-  def __init__(self, componentname, componentid):
-    # SUBCOMPONENTS
-    self.appllayer = ApplicationLayerComponent("ApplicationLayer", componentid)
-    self.netlayer = NetworkLayerComponent("NetworkLayer", componentid)
-    self.linklayer = LinkLayerComponent("LinkLayer", componentid)
+    def onMessageFromTop(self, eventobj: Event):
+        myevent = Event( self, "message", eventobj.content)
+        self.ports[PortNames.DOWN].trigger_event( myevent )
 
-    # CONNECTIONS AMONG SUBCOMPONENTS
-    self.appllayer.connectTo(PortNames.DOWN, self.netlayer)
-    self.netlayer.connectTo(PortNames.UP, self.appllayer)
-    self.netlayer.connectTo(PortNames.DOWN, self.linklayer)
-    self.linklayer.connectTo(PortNames.UP, self.netlayer)
+    def onMessageFromChannel(self, eventobj: Event):
+        myevent = Event( self, "messagefrombottom", eventobj.content)
+        self.ports[PortNames.UP].trigger_event( myevent )
 
-    # Connect the bottom component to the composite component....
-    self.linklayer.connectTo(PortNames.DOWN, self)
-    self.connectTo(PortNames.UP, self.linklayer)
 
-    super().__init__(componentname, componentid, self.handlerdict)
+    handlerdict = {
+        "messagefromtop": onMessageFromTop,
+        "messagefromchannel": onMessageFromChannel
+    }
+
+    def __init__(self, componentname, componentid):
+        # SUBCOMPONENTS
+        self.appllayer = ApplicationLayerComponent( "ApplicationLayer", componentid )
+        self.netlayer = NetworkLayerComponent( "NetworkLayer", componentid )
+        self.linklayer = LinkLayerComponent( "LinkLayer", componentid )
+
+        # CONNECTIONS AMONG SUBCOMPONENTS
+        self.appllayer.connectMeToComponent( PortNames.DOWN, self.netlayer )
+        self.netlayer.connectMeToComponent( PortNames.UP, self.appllayer )
+        self.netlayer.connectMeToComponent( PortNames.DOWN, self.linklayer )
+        self.linklayer.connectMeToComponent( PortNames.UP, self.netlayer )
+
+        # Connect the bottom component to the composite component....
+        self.linklayer.connectMeToComponent( PortNames.DOWN, self )
+        self.connectMeToComponent( PortNames.UP, self.linklayer )
+
+        super().__init__( componentname, componentid, self.handlerdict )
+
+
+class MessageContent:
+    def __init__(self, value):
+        self.value = value
 
 def Main():
-  cc1 = CompositeComponent("CompositeNodeComponent", 1)
-  cc2 = CompositeComponent("CompositeNodeComponent", 2)
+    cc1 = CompositeComponent( "Node", 1 )
+    cc2 = CompositeComponent( "Node", 2 )
+    ch1 = P2PFIFOChannel( "P2PFIFOChannel", 1 )
+    cc1.connectMeToChannel( PortNames.DOWN, ch1 )
+    cc2.connectMeToChannel( PortNames.DOWN, ch1 )
 
+    # print(registry.getComponentByInstance(cc.linklayer))
+    # print(registry.getComponentByInstance(cc.netlayer))
+    # print(registry.getComponentByInstance(cc))
 
+    registry.printComponents()
 
-  # print(registry.getComponentByInstance(cc.linklayer))
-  # print(registry.getComponentByInstance(cc.netlayer))
-  # print(registry.getComponentByInstance(cc))
+    time.sleep( 2 )
 
-  registry.printComponents()
+    msg = MessageContent(5);
+    myevent = Event( cc1.appllayer, "agree", msg )
+    cc1.appllayer.trigger_event( myevent )
 
-  time.sleep(5)
+    while (True): pass
 
-  myevent = Event(cc1, "message", "content")
-  cc1.trigger_event(myevent)
-
-  while (True): pass
 
 if __name__ == "__main__":
-  Main()
+    Main()
