@@ -1,91 +1,111 @@
-from Ahc import GenericComponentModel, Event, ComponentRegistry, PortNames, P2PFIFOChannel
-import time
+from Ahc import GenericComponentModel, Event, ComponentRegistry, PortNames, P2PFIFOChannel, FIFOBroadcastChannel
+import time, random
 import threading
 
 registry = ComponentRegistry()
 
 class ApplicationLayerComponent( GenericComponentModel ):
+    def onInit(self, eventobj: Event):
+        print( f"Initializing {self.componentname}.{self.componentinstancenumber}" )
+        proposedval = random.randint(0,100)
+        randval = random.randint(0,1)
+        if randval == 0:
+            newmsg = MessageContent( proposedval, self.componentinstancenumber )
+            randdelay = random.randint(0,5)
+            time.sleep(randdelay)
+            self.sendself(Event(self,"propose", newmsg))
+        else:
+            pass
+
     def onMessageFromBottom(self, eventobj: Event):
-        print(f"{self.componentname}.{self.componentinstancenumber}: Gotton message {eventobj.content.value}")
-        value = eventobj.content.value
-        value += 1
-        newmsg = MessageContent( value )
-        myevent = Event( self, "agree", newmsg )
-        self.trigger_event(myevent)
+        print( f"{self.componentname}.{self.componentinstancenumber}: Gotton message {eventobj.content.value} from {eventobj.content.mynodeid}" )
+        # value = eventobj.content.value
+        # value += 1
+        # newmsg = MessageContent( value )
+        # myevent = Event( self, "agree", newmsg )
+        # self.trigger_event(myevent)
+
+    def onPropose(self, eventobj: Event):
+        self.senddown( Event( self, "messagefromtop", eventobj.content ) )
 
     def onAgree(self, eventobj: Event):
-        myevent = Event( self, "messagefromtop", eventobj.content )
-        self.ports[PortNames.DOWN].trigger_event(myevent)
+        print(f"Agreed on {eventobj.content}")
 
     def onTimerExpired(self, eventobj: Event):
         pass
 
-    handlerdict = {
+    eventhandlers = {
+        "init": onInit,
+        "propose": onPropose,
         "messagefrombottom": onMessageFromBottom,
         "agree": onAgree,
         "timerexpired": onTimerExpired
     }
 
-    def __init__(self, componentname, componentid):
-        super().__init__( componentname, componentid, self.handlerdict )
 
 
 class NetworkLayerComponent( GenericComponentModel ):
+    def onInit(self, eventobj: Event):
+        print( f"Initializing {self.componentname}.{self.componentinstancenumber}" )
+
     def onMessageFromTop(self, eventobj: Event):
-        myevent = Event( self, "messagefromtop", eventobj.content )
-        self.ports[PortNames.DOWN].trigger_event(myevent)
+        self.senddown(Event( self, "messagefromtop", eventobj.content ))
 
     def onMessageFromBottom(self, eventobj: Event):
-        myevent = Event( self, "messagefrombottom", eventobj.content )
-        self.ports[PortNames.UP].trigger_event(myevent)
+        self.sendup(Event( self, "messagefrombottom", eventobj.content ))
 
     def onTimerExpired(self, eventobj: Event):
         pass
 
-    handlerdict = {
+    eventhandlers = {
+        "init": onInit,
         "messagefromtop": onMessageFromTop,
         "messagefrombottom": onMessageFromBottom,
         "timerexpired": onTimerExpired
     }
 
-    def __init__(self, componentname, componentid):
-        super().__init__( componentname, componentid, self.handlerdict )
 
 
 class LinkLayerComponent( GenericComponentModel ):
+    def onInit(self, eventobj: Event):
+        print( f"Initializing {self.componentname}.{self.componentinstancenumber}" )
+
     def onMessageFromTop(self, eventobj: Event):
         myevent = Event( self, "messagefromtop", eventobj.content )
-        self.ports[PortNames.DOWN].trigger_event(myevent)
+        self.ports[PortNames.DOWN].trigger_event( myevent )
 
     def onMessageFromBottom(self, eventobj: Event):
         myevent = Event( self, "messagefrombottom", eventobj.content )
-        self.ports[PortNames.UP].trigger_event(myevent)
+        self.ports[PortNames.UP].trigger_event( myevent )
 
     def onTimerExpired(self, eventobj: Event):
         pass
 
-    handlerdict = {
+    eventhandlers = {
+        "init": onInit,
         "messagefromtop": onMessageFromTop,
         "messagefrombottom": onMessageFromBottom,
         "timerexpired": onTimerExpired
     }
 
-    def __init__(self, componentname, componentid):
-        super().__init__( componentname, componentid, self.handlerdict )
 
 
 class CompositeComponent( GenericComponentModel ):
 
+    def onInit(self, eventobj: Event):
+        print( f"Initializing {self.componentname}.{self.componentinstancenumber}" )
+
+
     def onMessageFromTop(self, eventobj: Event):
-        myevent = Event( self, "message", eventobj.content)
+        myevent = Event( self, "message", eventobj.content )
         self.ports[PortNames.DOWN].trigger_event( myevent )
 
     def onMessageFromChannel(self, eventobj: Event):
-        myevent = Event( self, "messagefrombottom", eventobj.content)
+        myevent = Event( self, "messagefrombottom", eventobj.content )
         self.ports[PortNames.UP].trigger_event( myevent )
 
-
-    handlerdict = {
+    eventhandlers = {
+        "init": onInit,
         "messagefromtop": onMessageFromTop,
         "messagefromchannel": onMessageFromChannel
     }
@@ -106,31 +126,27 @@ class CompositeComponent( GenericComponentModel ):
         self.linklayer.connectMeToComponent( PortNames.DOWN, self )
         self.connectMeToComponent( PortNames.UP, self.linklayer )
 
-        super().__init__( componentname, componentid, self.handlerdict )
+        super().__init__( componentname, componentid )
 
 
 class MessageContent:
-    def __init__(self, value):
+    def __init__(self, value, mynodeid):
         self.value = value
+        self.mynodeid = mynodeid
 
 def Main():
-    cc1 = CompositeComponent( "Node", 1 )
-    cc2 = CompositeComponent( "Node", 2 )
-    ch1 = P2PFIFOChannel( "P2PFIFOChannel", 1 )
-    cc1.connectMeToChannel( PortNames.DOWN, ch1 )
-    cc2.connectMeToChannel( PortNames.DOWN, ch1 )
+    nodes = []
+    ch1 = FIFOBroadcastChannel( "FIFOBroadcastChannel", 1 )
+    for i in range( 10 ):
+        cc = CompositeComponent( "Node", i )
+        nodes.append( cc )
+        cc.connectMeToChannel( PortNames.DOWN, ch1 )
 
     # print(registry.getComponentByInstance(cc.linklayer))
     # print(registry.getComponentByInstance(cc.netlayer))
     # print(registry.getComponentByInstance(cc))
 
     registry.printComponents()
-
-    time.sleep( 2 )
-
-    msg = MessageContent(5);
-    myevent = Event( cc1.appllayer, "agree", msg )
-    cc1.appllayer.trigger_event( myevent )
 
     while (True): pass
 

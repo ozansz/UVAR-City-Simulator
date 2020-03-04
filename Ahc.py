@@ -60,22 +60,24 @@ class Event:
 
 class GenericComponentModel:
 
-    def __init__(self, componentname, componentinstancenumber, handlerdict={}, num_worker_threads=1):
+    def onInit(self, eventobj: Event):
+        print( f"Initializing {self.componentname}.{self.componentinstancenumber}" )
+
+    def __init__(self, componentname, componentinstancenumber, num_worker_threads=2):
         self.inputqueue = queue.Queue()
         self.componentname = componentname
         self.componentinstancenumber = componentinstancenumber
-        self.eventhandlers = {}
+
         try:
             if self.ports:
                 pass
         except AttributeError:
             self.ports = {}
 
-        for ev in handlerdict:
-            self.eventhandlers[ev] = handlerdict[ev]
-
         self.registry = ComponentRegistry()
         self.registry.addComponent( self )
+
+        self.inputqueue.put_nowait( Event( self, "init", None ) )
 
         for i in range( num_worker_threads ):
             t = Thread( target=self.worker )
@@ -98,11 +100,20 @@ class GenericComponentModel:
         portnameforchannel = self.componentname + str( self.componentinstancenumber )
         channel.connectMeToComponent( portnameforchannel, self )
 
+    def senddown(self, event: Event):
+        self.ports[PortNames.DOWN].trigger_event( event )
+
+    def sendup(self, event: Event):
+        self.ports[PortNames.UP].trigger_event( event )
+
+    def sendself(self, event: Event):
+        self.trigger_event( event )
+
     def worker(self):
         while True:
             workitem = self.inputqueue.get()
             if workitem.event in self.eventhandlers:
-                #print(
+                # print(
                 #    f"I am {self.eventhandlers[workitem.event]}: {workitem.caller.componentname} called me at {workitem.time}" )
                 self.eventhandlers[workitem.event]( self, eventobj=workitem )  # call the handler
             else:
@@ -116,25 +127,61 @@ class GenericComponentModel:
 class GenericChannel( GenericComponentModel ):
     pass
 
+class AHCChannelError( Exception ):
+    pass
+
 
 class P2PFIFOChannel( GenericChannel ):
+    def onInit(self, eventobj: Event):
+        print( f"Initializing {self.componentname}.{self.componentinstancenumber}" )
+
+    def connectMeToComponent(self, name, component):
+        try:
+            self.ports[name] = component
+            print( f"Number of nodes connected: {len( self.ports )}" )
+            if len( self.ports ) > 2:
+                raise AHCChannelError( "More than two nodes cannot connect to a P2PFIFOChannel" )
+        except AttributeError:
+            self.ports = {}
+            self.ports[name] = component
+        # except AHCChannelError as e:
+        #    print( f"{e}" )
+
     def onMessage(self, eventobj: Event):
-        callername = eventobj.caller.componentname + str(eventobj.caller.componentinstancenumber)
+        callername = eventobj.caller.componentname + str( eventobj.caller.componentinstancenumber )
         for item in self.ports:
             callee = self.ports[item]
-            calleename = self.ports[item].componentname + str(self.ports[item].componentinstancenumber)
-            #print(f"I am connected to {calleename}. Will check if I have to distribute it to {item}")
+            calleename = self.ports[item].componentname + str( self.ports[item].componentinstancenumber )
+            # print(f"I am connected to {calleename}. Will check if I have to distribute it to {item}")
             if calleename == callername:
                 pass
             else:
-                myevent = Event( self, "messagefromchannel", eventobj.content)
+                myevent = Event( self, "messagefromchannel", eventobj.content )
                 callee.trigger_event( myevent )
 
-
-    handlerdict = {
+    eventhandlers = {
+        "init": onInit,
         "message": onMessage
     }
 
-    def __init__(self, componentname, componentid):
-        super().__init__( componentname, componentid, self.handlerdict )
 
+class FIFOBroadcastChannel( GenericChannel ):
+    def onInit(self, eventobj: Event):
+        print( f"Initializing {self.componentname}.{self.componentinstancenumber}" )
+
+    def onMessage(self, eventobj: Event):
+        callername = eventobj.caller.componentname + str( eventobj.caller.componentinstancenumber )
+        for item in self.ports:
+            callee = self.ports[item]
+            calleename = self.ports[item].componentname + str( self.ports[item].componentinstancenumber )
+            # print(f"I am connected to {calleename}. Will check if I have to distribute it to {item}")
+            if calleename == callername:
+                pass
+            else:
+                myevent = Event( self, "messagefromchannel", eventobj.content )
+                callee.trigger_event( myevent )
+
+    eventhandlers = {
+        "init": onInit,
+        "message": onMessage
+    }

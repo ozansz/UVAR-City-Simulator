@@ -4,3 +4,4 @@ from Ahc import ComponentRegistry
 from Ahc import PortNames
 from Ahc import GenericChannel
 from Ahc import P2PFIFOChannel
+from Ahc import FIFOBroadcastChannel
