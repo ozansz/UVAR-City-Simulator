@@ -90,7 +90,7 @@ class LinkLayerComponent( GenericComponentModel ):
 
 
 
-class CompositeComponent( GenericComponentModel ):
+class AdHocNode( GenericComponentModel ):
 
     def onInit(self, eventobj: Event):
         print( f"Initializing {self.componentname}.{self.componentinstancenumber}" )
@@ -138,7 +138,7 @@ def Main():
     nodes = []
     ch1 = FIFOBroadcastChannel( "FIFOBroadcastChannel", 1 )
     for i in range( 10 ):
-        cc = CompositeComponent( "Node", i )
+        cc = AdHocNode( "Node", i )
         nodes.append( cc )
         cc.connectMeToChannel( PortNames.DOWN, ch1 )
 
