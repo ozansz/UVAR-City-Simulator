@@ -1,20 +1,8 @@
-from abc import abstractmethod
 import queue
 from threading import Thread
 import datetime
 from enum import Enum
-
-#################FAILURE ASSUMPTIONS
-# TODO: Correctness properties: Safety and liveness
-# TODO: Model crash-stop, omission, crash-recover and byzantine failure models to the components
-# TODO: Add storage (temporary, persistent) to crash-recover model
-# TODO: Channel failure models: lossy-link, fair-loss, stubborn links, perfect links (WHAT ELSE?), FIFO perfect
-# TODO: Logged perfect links (tolerance to crashes), authenticated perfect links
-# TODO: Broadcast channels? and their failure models? Collisions?
-# TODO: Properties of all models separately: e.g., Fair loss, finite duplication, no fabrication in fair-loss link model
-# TODO: Packets: loss, duplication, sequence change, windowing?,
-# TODO: Eventually (unbounded time) or bounded time for message delivery?
-
+import networkx as nx
 
 #############TIMING ASSUMPTIONS
 # TODO: Event handling time, message sending time, assumptions about clock (drift, skew, ...)
@@ -30,10 +18,39 @@ from enum import Enum
 ##### VISUALIZATION
 # TODO: Space-time diagrams for events
 
+###### TOPOLOGY MANAGEMENT
+# TODO: Given a graph as input, generate the topology....
+
+
+class MessageDestinationIdentifiers(Enum):
+  LINKLAYERBROADCAST = "LINKLAYERBROADCAST",  # sinngle-hop broadcast, means all directly connected nodes
+  NETWORKLAYERBROADCAST = "NETWORKLAYERBROADCAST"  # For flooding over multiple-hops means all connected nodes to me over one or more links
+
+class PortList(dict):
+  def __setitem__(self, key, value):
+    try:
+      self[key]
+    except KeyError:
+      super(PortList, self).__setitem__(key, [])
+    self[key].append(value)
 
 class PortNames(Enum):
   DOWN = "PORTDOWN"
   UP = "PORTUP"
+
+class GenericMessage:
+  def __init__(self, messagetype, messagefrom, messageto, messagepayload):
+    self.messagetype = messagetype
+    self.messagefrom = messagefrom
+    self.messageto = messageto
+    self.messagepayload = messagepayload
+
+class Event:
+  def __init__(self, caller, event, messagecontent):
+    self.caller = caller
+    self.event = event
+    self.messagecontent = messagecontent
+    self.time = datetime.datetime.now()
 
 def singleton(cls):
   instance = [None]
@@ -71,14 +88,8 @@ class ComponentRegistry():
       print(f"I am {cmp.componentname}.{cmp.componentinstancenumber}")
       for i in cmp.ports:
         connectedcmp = cmp.ports[i]
-        print(f"\t{i} {connectedcmp.componentname}.{connectedcmp.componentinstancenumber}")
-
-class Event:
-  def __init__(self, caller, event, content):
-    self.caller = caller
-    self.event = event
-    self.content = content
-    self.time = datetime.datetime.now()
+        for p in connectedcmp:
+          print(f"\t{i} {p.componentname}.{p.componentinstancenumber}")
 
 class GenericComponentModel:
 
@@ -94,7 +105,7 @@ class GenericComponentModel:
       if self.ports:
         pass
     except AttributeError:
-      self.ports = {}
+      self.ports = PortList()
 
     self.registry = ComponentRegistry()
     self.registry.addComponent(self)
@@ -110,23 +121,31 @@ class GenericComponentModel:
     try:
       self.ports[name] = component
     except AttributeError:
-      self.ports = {}
+      self.ports = PortList()
       self.ports[name] = component
 
   def connectMeToChannel(self, name, channel):
     try:
       self.ports[name] = channel
     except AttributeError:
-      self.ports = {}
+      self.ports = PortList()
       self.ports[name] = channel
     portnameforchannel = self.componentname + str(self.componentinstancenumber)
     channel.connectMeToComponent(portnameforchannel, self)
 
   def senddown(self, event: Event):
-    self.ports[PortNames.DOWN].trigger_event(event)
+    try:
+      for p in self.ports[PortNames.DOWN]:
+        p.trigger_event(event)
+    except KeyError:
+      pass
 
   def sendup(self, event: Event):
-    self.ports[PortNames.UP].trigger_event(event)
+    try:
+      for p in self.ports[PortNames.UP]:
+        p.trigger_event(event)
+    except:
+      pass
 
   def sendself(self, event: Event):
     self.trigger_event(event)
@@ -145,62 +164,22 @@ class GenericComponentModel:
   def trigger_event(self, eventobj: Event):
     self.inputqueue.put_nowait(eventobj)
 
-class GenericChannel(GenericComponentModel):
-  pass
 
-class AHCChannelError(Exception):
-  pass
+class Topology():
+  nodes = {}
+  channels = {}
+  G
 
-class P2PFIFOChannel(GenericChannel):
-  def onInit(self, eventobj: Event):
-    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
-
-  def connectMeToComponent(self, name, component):
-    try:
-      self.ports[name] = component
-      print(f"Number of nodes connected: {len(self.ports)}")
-      if len(self.ports) > 2:
-        raise AHCChannelError("More than two nodes cannot connect to a P2PFIFOChannel")
-    except AttributeError:
-      self.ports = {}
-      self.ports[name] = component
-    # except AHCChannelError as e:
-    #    print( f"{e}" )
-
-  def onMessage(self, eventobj: Event):
-    callername = eventobj.caller.componentname + str(eventobj.caller.componentinstancenumber)
-    for item in self.ports:
-      callee = self.ports[item]
-      calleename = self.ports[item].componentname + str(self.ports[item].componentinstancenumber)
-      # print(f"I am connected to {calleename}. Will check if I have to distribute it to {item}")
-      if calleename == callername:
-        pass
-      else:
-        myevent = Event(self, "messagefromchannel", eventobj.content)
-        callee.trigger_event(myevent)
-
-  eventhandlers = {
-    "init": onInit,
-    "message": onMessage
-  }
-
-class FIFOBroadcastChannel(GenericChannel):
-  def onInit(self, eventobj: Event):
-    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
-
-  def onMessage(self, eventobj: Event):
-    callername = eventobj.caller.componentname + str(eventobj.caller.componentinstancenumber)
-    for item in self.ports:
-      callee = self.ports[item]
-      calleename = self.ports[item].componentname + str(self.ports[item].componentinstancenumber)
-      # print(f"I am connected to {calleename}. Will check if I have to distribute it to {item}")
-      if calleename == callername:
-        pass
-      else:
-        myevent = Event(self, "messagefromchannel", eventobj.content)
-        callee.trigger_event(myevent)
-
-  eventhandlers = {
-    "init": onInit,
-    "message": onMessage
-  }
+  def __init__(self, G: nx.Graph, nodetype, channeltype):
+    self.G = G
+    nodes = list(G.nodes)
+    edges = list(G.edges)
+    for i in nodes:
+      cc = nodetype(str(nodetype), i)
+      self.nodes[i] = cc
+    for k in edges:
+      ch = channeltype(str(channeltype), k)
+      self.channels[k] = ch
+      print(f"Edges: Node {k[0]} is connected to Node {k[1]}")
+      self.nodes[k[0]].connectMeToChannel(PortNames.DOWN, ch)
+      self.nodes[k[1]].connectMeToChannel(PortNames.DOWN, ch)

@@ -1,4 +1,9 @@
-from Ahc import GenericComponentModel, Event, ComponentRegistry, PortNames, P2PFIFOChannel, FIFOBroadcastChannel
+from Ahc import GenericComponentModel, Event, PortNames, MessageDestinationIdentifiers
+from FailureDetectors import GenericFailureDetector
+from Ahc import ComponentRegistry
+from Channels import FIFOBroadcastChannel
+
+
 import time, random
 import threading
 
@@ -18,8 +23,8 @@ class ApplicationLayerComponent(GenericComponentModel):
       pass
 
   def onMessageFromBottom(self, eventobj: Event):
-    print(
-      f"{self.componentname}.{self.componentinstancenumber}: Gotton message {eventobj.content.value} from {eventobj.content.mynodeid}")
+    pass
+    #print(f"{self.componentname}.{self.componentinstancenumber}: Gotton message {eventobj.content} ")
     # value = eventobj.content.value
     # value += 1
     # newmsg = MessageContent( value )
@@ -27,10 +32,10 @@ class ApplicationLayerComponent(GenericComponentModel):
     # self.trigger_event(myevent)
 
   def onPropose(self, eventobj: Event):
-    self.senddown(Event(self, "messagefromtop", eventobj.content))
+    self.senddown(Event(self, "messagefromtop", eventobj.messagecontent))
 
   def onAgree(self, eventobj: Event):
-    print(f"Agreed on {eventobj.content}")
+    print(f"Agreed on {eventobj.messagecontent}")
 
   def onTimerExpired(self, eventobj: Event):
     pass
@@ -48,10 +53,10 @@ class NetworkLayerComponent(GenericComponentModel):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "messagefromtop", eventobj.content))
+    self.senddown(Event(self, "messagefromtop", eventobj.messagecontent))
 
   def onMessageFromBottom(self, eventobj: Event):
-    self.sendup(Event(self, "messagefrombottom", eventobj.content))
+    self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
 
   def onTimerExpired(self, eventobj: Event):
     pass
@@ -68,12 +73,10 @@ class LinkLayerComponent(GenericComponentModel):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    myevent = Event(self, "messagefromtop", eventobj.content)
-    self.ports[PortNames.DOWN].trigger_event(myevent)
+    self.senddown(Event(self, "messagefromtop", eventobj.messagecontent))
 
   def onMessageFromBottom(self, eventobj: Event):
-    myevent = Event(self, "messagefrombottom", eventobj.content)
-    self.ports[PortNames.UP].trigger_event(myevent)
+    self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
 
   def onTimerExpired(self, eventobj: Event):
     pass
@@ -91,12 +94,10 @@ class AdHocNode(GenericComponentModel):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    myevent = Event(self, "message", eventobj.content)
-    self.ports[PortNames.DOWN].trigger_event(myevent)
+    self.senddown(Event(self, "message", eventobj.messagecontent))
 
   def onMessageFromChannel(self, eventobj: Event):
-    myevent = Event(self, "messagefrombottom", eventobj.content)
-    self.ports[PortNames.UP].trigger_event(myevent)
+    self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
 
   eventhandlers = {
     "init": onInit,
@@ -109,10 +110,13 @@ class AdHocNode(GenericComponentModel):
     self.appllayer = ApplicationLayerComponent("ApplicationLayer", componentid)
     self.netlayer = NetworkLayerComponent("NetworkLayer", componentid)
     self.linklayer = LinkLayerComponent("LinkLayer", componentid)
+    self.failuredetect = GenericFailureDetector("FailureDetector", componentid)
 
     # CONNECTIONS AMONG SUBCOMPONENTS
     self.appllayer.connectMeToComponent(PortNames.DOWN, self.netlayer)
+    self.failuredetect.connectMeToComponent(PortNames.DOWN, self.netlayer)
     self.netlayer.connectMeToComponent(PortNames.UP, self.appllayer)
+    self.netlayer.connectMeToComponent(PortNames.UP, self.failuredetect)
     self.netlayer.connectMeToComponent(PortNames.DOWN, self.linklayer)
     self.linklayer.connectMeToComponent(PortNames.UP, self.netlayer)
 
@@ -130,7 +134,7 @@ class MessageContent:
 def Main():
   nodes = []
   ch1 = FIFOBroadcastChannel("FIFOBroadcastChannel", 1)
-  for i in range(10):
+  for i in range(2):
     cc = AdHocNode("Node", i)
     nodes.append(cc)
     cc.connectMeToChannel(PortNames.DOWN, ch1)
