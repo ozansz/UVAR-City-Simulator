@@ -38,19 +38,29 @@ class PortNames(Enum):
   DOWN = "PORTDOWN"
   UP = "PORTUP"
 
-class GenericMessage:
-  def __init__(self, messagetype, messagefrom, messageto, messagepayload):
+class GenericMessagePayload():
+  def __init__(self, messagepayload):
+    self.messagepayload = messagepayload
+
+class GenericMessageHeader():
+  def __init__(self, messagetype, messagefrom, messageto):
     self.messagetype = messagetype
     self.messagefrom = messagefrom
     self.messageto = messageto
-    self.messagepayload = messagepayload
+
+class GenericMessage:
+  def __init__(self, header, payload):
+    self.header = header
+    self.payload = payload
+
 
 class Event:
   def __init__(self, caller, event, messagecontent):
     self.caller = caller
     self.event = event
-    self.messagecontent = messagecontent
     self.time = datetime.datetime.now()
+    self.messagecontent = messagecontent
+
 
 def singleton(cls):
   instance = [None]
@@ -82,6 +92,11 @@ class ComponentRegistry():
     key = componentname + str(componentinstancenumber)
     return self.components[key]
 
+  def init(self):
+    for itemkey in self.components:
+      cmp = self.components[itemkey]
+      cmp.inputqueue.put_nowait(Event(self, "init", None))
+
   def printComponents(self):
     for itemkey in self.components:
       cmp = self.components[itemkey]
@@ -91,16 +106,19 @@ class ComponentRegistry():
         for p in connectedcmp:
           print(f"\t{i} {p.componentname}.{p.componentinstancenumber}")
 
+registry = ComponentRegistry()
+
 class GenericComponentModel:
 
-  def onInit(self, eventobj: Event):
-    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
+#  def onInit(self, eventobj: Event):
+#    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def __init__(self, componentname, componentinstancenumber, num_worker_threads=2):
+    self.eventhandlers = {}
+    self.eventhandlers["init"] = self.onInit
     self.inputqueue = queue.Queue()
     self.componentname = componentname
     self.componentinstancenumber = componentinstancenumber
-
     try:
       if self.ports:
         pass
@@ -110,12 +128,19 @@ class GenericComponentModel:
     self.registry = ComponentRegistry()
     self.registry.addComponent(self)
 
-    self.inputqueue.put_nowait(Event(self, "init", None))
+
+
 
     for i in range(num_worker_threads):
       t = Thread(target=self.worker)
       t.daemon = True
       t.start()
+
+
+  #eventhandlers = {
+  #  "init": onInit
+  #}
+
 
   def connectMeToComponent(self, name, component):
     try:
@@ -156,7 +181,7 @@ class GenericComponentModel:
       if workitem.event in self.eventhandlers:
         # print(
         #    f"I am {self.eventhandlers[workitem.event]}: {workitem.caller.componentname} called me at {workitem.time}" )
-        self.eventhandlers[workitem.event](self, eventobj=workitem)  # call the handler
+        self.eventhandlers[workitem.event](eventobj=workitem)  # call the handler
       else:
         print(f"Event Handler: {workitem.event} is not implemented")
       self.inputqueue.task_done()
@@ -168,18 +193,41 @@ class GenericComponentModel:
 class Topology():
   nodes = {}
   channels = {}
-  G
 
   def __init__(self, G: nx.Graph, nodetype, channeltype):
     self.G = G
     nodes = list(G.nodes)
     edges = list(G.edges)
     for i in nodes:
-      cc = nodetype(str(nodetype), i)
+      cc = nodetype(nodetype.__name__, i)
       self.nodes[i] = cc
     for k in edges:
-      ch = channeltype(str(channeltype), k)
+      ch = channeltype(channeltype.__name__, str(k[0])+"-"+str(k[1]))
       self.channels[k] = ch
       print(f"Edges: Node {k[0]} is connected to Node {k[1]}")
       self.nodes[k[0]].connectMeToChannel(PortNames.DOWN, ch)
       self.nodes[k[1]].connectMeToChannel(PortNames.DOWN, ch)
+
+    registry.printComponents()
+    ComponentRegistry().init()
+
+
+  def __init__(self, sendertype, receivertype, channeltype):
+
+    self.sender = sendertype(sendertype.__name__, 0)
+    self.receiver = receivertype(receivertype.__name__, 1)
+    ch = channeltype(channeltype.__name__, "0-1")
+
+    self.G = nx.Graph()
+    self.G.add_nodes_from([0, 1])
+    self.G.add_edges_from([(0, 1)])
+
+    self.nodes["0"] = self.sender
+    self.nodes["1"] = self.receiver
+    self.channels["0-1"] = ch
+
+    self.sender.connectMeToChannel(PortNames.DOWN, ch)
+    self.receiver.connectMeToChannel(PortNames.DOWN, ch)
+
+    registry.printComponents()
+    ComponentRegistry().init()

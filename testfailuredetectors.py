@@ -1,13 +1,13 @@
-from Ahc import GenericComponentModel, Event, PortNames, Topology
+from Ahc import GenericComponentModel, Event, PortNames, Topology, ComponentRegistry
 from FailureDetectors import GenericFailureDetector
-from Ahc import ComponentRegistry
-from Channels import P2PFIFOChannel
+from Channels import P2PFIFOPerfectChannel
 import networkx as nx
 import matplotlib.pyplot as plt
 
 registry = ComponentRegistry()
 
 class LinkLayerComponent(GenericComponentModel):
+
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
@@ -20,12 +20,18 @@ class LinkLayerComponent(GenericComponentModel):
   def onTimerExpired(self, eventobj: Event):
     pass
 
-  eventhandlers = {
-    "init": onInit,
-    "messagefromtop": onMessageFromTop,
-    "messagefrombottom": onMessageFromBottom,
-    "timerexpired": onTimerExpired
-  }
+  def __init__(self, componentname, componentinstancenumber):
+    super().__init__(componentname, componentinstancenumber)
+    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
+    self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
+    self.eventhandlers["timerexpired"] = self.onTimerExpired
+
+#  eventhandlers = {
+#    "init": onInit,
+#    "messagefromtop": onMessageFromTop,
+#    "messagefrombottom": onMessageFromBottom,
+#    "timerexpired": onTimerExpired
+#  }
 
 class AdHocNode(GenericComponentModel):
 
@@ -37,12 +43,6 @@ class AdHocNode(GenericComponentModel):
 
   def onMessageFromChannel(self, eventobj: Event):
     self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
-
-  eventhandlers = {
-    "init": onInit,
-    "messagefromtop": onMessageFromTop,
-    "messagefromchannel": onMessageFromChannel
-  }
 
   def __init__(self, componentname, componentid):
     # SUBCOMPONENTS
@@ -57,7 +57,12 @@ class AdHocNode(GenericComponentModel):
     self.linklayer.connectMeToComponent(PortNames.DOWN, self)
     self.connectMeToComponent(PortNames.UP, self.linklayer)
 
+
+    #First initialize the super, then add your own event handlers...
     super().__init__(componentname, componentid)
+    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
+    self.eventhandlers["messagefromchannel"] = self.onMessageFromChannel
+
 
 class MessageContent:
   def __init__(self, value, mynodeid):
@@ -69,11 +74,12 @@ def Main():
   # G.add_nodes_from([1, 2, 3, 4])
   # G.add_edges_from([(1, 2), (2, 3), (3,4)])
 
+  # https://networkx.github.io/documentation/stable/index.html
   G = nx.random_geometric_graph(5, 0.5)
   nx.draw(G, with_labels=True, font_weight='bold')
   plt.draw()
 
-  topo = Topology(G, AdHocNode, P2PFIFOChannel)
+  topo = Topology(G, AdHocNode, P2PFIFOPerfectChannel)
 
   #  nodes = []
   #  ch1 = FIFOBroadcastChannel("FIFOBroadcastChannel", 1)

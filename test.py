@@ -1,13 +1,30 @@
-from Ahc import GenericComponentModel, Event, PortNames, MessageDestinationIdentifiers
+from Ahc import GenericComponentModel, Event, PortNames, Topology,MessageDestinationIdentifiers
 from FailureDetectors import GenericFailureDetector
 from Ahc import ComponentRegistry
-from Channels import FIFOBroadcastChannel
-
-
+from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
+from Channels import FIFOBroadcastPerfectChannel
+import networkx as nx
+import matplotlib.pyplot as plt
 import time, random
 import threading
+from enum import Enum
 
 registry = ComponentRegistry()
+
+
+#define your own message types
+class ApplicationLayerMessageTypes(Enum):
+  PROPOSE = "PROPOSE"
+  ACCEPT = "ACCEPT"
+
+#define your own message header structure
+class ApplicationLayerMessageHeader(GenericMessageHeader):
+  pass
+
+#define your own message payload structure
+class ApplicationLayerMessagePayload(GenericMessagePayload):
+  pass
+
 
 class ApplicationLayerComponent(GenericComponentModel):
   def onInit(self, eventobj: Event):
@@ -15,16 +32,28 @@ class ApplicationLayerComponent(GenericComponentModel):
     proposedval = random.randint(0, 100)
     randval = random.randint(0, 1)
     if randval == 0:
-      newmsg = MessageContent(proposedval, self.componentinstancenumber)
+      hdr = ApplicationLayerMessageHeader(ApplicationLayerMessageTypes.PROPOSE, self.componentinstancenumber, MessageDestinationIdentifiers.NETWORKLAYERBROADCAST)
+      payload = ApplicationLayerMessagePayload("23")
+      proposalmessage = GenericMessage(hdr, payload)
       randdelay = random.randint(0, 5)
       time.sleep(randdelay)
-      self.sendself(Event(self, "propose", newmsg))
+      self.sendself(Event(self, "propose", proposalmessage))
     else:
       pass
 
   def onMessageFromBottom(self, eventobj: Event):
-    pass
-    #print(f"{self.componentname}.{self.componentinstancenumber}: Gotton message {eventobj.content} ")
+    try:
+      applmessage = eventobj.messagecontent
+      hdr = applmessage.header
+      payload = applmessage.payload
+      if hdr.messagetype == ApplicationLayerMessageTypes.ACCEPT:
+        print(f"Node-{self.componentinstancenumber} says Node-{hdr.messagefrom} has sent {hdr.messagetype} message")
+      elif hdr.messagetype == ApplicationLayerMessageTypes.PROPOSE:
+        print(f"Node-{self.componentinstancenumber} says Node-{hdr.messagefrom} has sent {hdr.messagetype} message")
+    except AttributeError:
+      print("Attribute Error")
+
+  # print(f"{self.componentname}.{self.componentinstancenumber}: Gotton message {eventobj.content} ")
     # value = eventobj.content.value
     # value += 1
     # newmsg = MessageContent( value )
@@ -32,7 +61,11 @@ class ApplicationLayerComponent(GenericComponentModel):
     # self.trigger_event(myevent)
 
   def onPropose(self, eventobj: Event):
-    self.senddown(Event(self, "messagefromtop", eventobj.messagecontent))
+    hdr = ApplicationLayerMessageHeader(ApplicationLayerMessageTypes.ACCEPT, self.componentinstancenumber,
+                                        MessageDestinationIdentifiers.NETWORKLAYERBROADCAST)
+    payload = ApplicationLayerMessagePayload("23")
+    proposalmessage = GenericMessage(hdr, payload)
+    self.senddown(Event(self, "messagefromtop", proposalmessage))
 
   def onAgree(self, eventobj: Event):
     print(f"Agreed on {eventobj.messagecontent}")
@@ -40,13 +73,12 @@ class ApplicationLayerComponent(GenericComponentModel):
   def onTimerExpired(self, eventobj: Event):
     pass
 
-  eventhandlers = {
-    "init": onInit,
-    "propose": onPropose,
-    "messagefrombottom": onMessageFromBottom,
-    "agree": onAgree,
-    "timerexpired": onTimerExpired
-  }
+  def __init__(self, componentname, componentinstancenumber):
+    super().__init__(componentname, componentinstancenumber)
+    self.eventhandlers["propose"] = self.onPropose
+    self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
+    self.eventhandlers["agree"] = self.onAgree
+    self.eventhandlers["timerexpired"] = self.onAgree
 
 class NetworkLayerComponent(GenericComponentModel):
   def onInit(self, eventobj: Event):
@@ -61,12 +93,11 @@ class NetworkLayerComponent(GenericComponentModel):
   def onTimerExpired(self, eventobj: Event):
     pass
 
-  eventhandlers = {
-    "init": onInit,
-    "messagefromtop": onMessageFromTop,
-    "messagefrombottom": onMessageFromBottom,
-    "timerexpired": onTimerExpired
-  }
+  def __init__(self, componentname, componentinstancenumber):
+    super().__init__(componentname, componentinstancenumber)
+    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
+    self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
+    self.eventhandlers["timerexpired"] = self.onTimerExpired
 
 class LinkLayerComponent(GenericComponentModel):
   def onInit(self, eventobj: Event):
@@ -81,12 +112,11 @@ class LinkLayerComponent(GenericComponentModel):
   def onTimerExpired(self, eventobj: Event):
     pass
 
-  eventhandlers = {
-    "init": onInit,
-    "messagefromtop": onMessageFromTop,
-    "messagefrombottom": onMessageFromBottom,
-    "timerexpired": onTimerExpired
-  }
+  def __init__(self, componentname, componentinstancenumber):
+    super().__init__(componentname, componentinstancenumber)
+    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
+    self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
+    self.eventhandlers["timerexpired"] = self.onTimerExpired
 
 class AdHocNode(GenericComponentModel):
 
@@ -98,12 +128,6 @@ class AdHocNode(GenericComponentModel):
 
   def onMessageFromChannel(self, eventobj: Event):
     self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
-
-  eventhandlers = {
-    "init": onInit,
-    "messagefromtop": onMessageFromTop,
-    "messagefromchannel": onMessageFromChannel
-  }
 
   def __init__(self, componentname, componentid):
     # SUBCOMPONENTS
@@ -125,27 +149,21 @@ class AdHocNode(GenericComponentModel):
     self.connectMeToComponent(PortNames.UP, self.linklayer)
 
     super().__init__(componentname, componentid)
-
-class MessageContent:
-  def __init__(self, value, mynodeid):
-    self.value = value
-    self.mynodeid = mynodeid
+    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
+    self.eventhandlers["messagefromchannel"] = self.onMessageFromChannel
 
 def Main():
-  nodes = []
-  ch1 = FIFOBroadcastChannel("FIFOBroadcastChannel", 1)
-  for i in range(2):
-    cc = AdHocNode("Node", i)
-    nodes.append(cc)
-    cc.connectMeToChannel(PortNames.DOWN, ch1)
+  G = nx.Graph()
+  G.add_nodes_from([1, 2])
+  G.add_edges_from([(1, 2)])
+  nx.draw(G, with_labels=True, font_weight='bold')
+  plt.draw()
 
-  # print(registry.getComponentByInstance(cc.linklayer))
-  # print(registry.getComponentByInstance(cc.netlayer))
-  # print(registry.getComponentByInstance(cc))
+  topo = Topology(G, AdHocNode, FIFOBroadcastPerfectChannel)
 
-  registry.printComponents()
 
-  while (True): pass
+
+  plt.show()   #while (True): pass
 
 if __name__ == "__main__":
   Main()

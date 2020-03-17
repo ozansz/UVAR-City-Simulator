@@ -2,16 +2,25 @@ from Ahc import GenericComponentModel
 from Ahc import Event
 import time
 
+# TODO: Channel failure models: lossy-link, fair-loss, stubborn links, perfect links (WHAT ELSE?), FIFO perfect
+# TODO: Logged perfect links (tolerance to crashes), authenticated perfect links
+# TODO: Broadcast channels? and their failure models? Collisions?
+# TODO: Properties of all models separately: e.g., Fair loss, finite duplication, no fabrication in fair-loss link model
+# TODO: Packets: loss, duplication, sequence change, windowing?,
+# TODO: Eventually (unbounded time) or bounded time for message delivery?
+
+
 class GenericChannel(GenericComponentModel):
   pass
 
 class AHCChannelError(Exception):
   pass
 
-class P2PFIFOChannel(GenericChannel):
+class P2PFIFOPerfectChannel(GenericChannel):
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
+  # Overwriting to limit the number of connected components
   def connectMeToComponent(self, name, component):
     try:
       self.ports[name] = component
@@ -38,12 +47,13 @@ class P2PFIFOChannel(GenericChannel):
           myevent = Event(self, "messagefromchannel", eventobj.messagecontent)
           callee.trigger_event(myevent)
 
-  eventhandlers = {
-    "init": onInit,
-    "message": onMessage
-  }
+  def __init__(self, componentname, componentinstancenumber):
+    super().__init__(componentname, componentinstancenumber)
+    self.eventhandlers["message"] = self.onMessage
 
-class FIFOBroadcastChannel(GenericChannel):
+
+class FIFOBroadcastPerfectChannel(GenericChannel):
+
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
@@ -60,7 +70,9 @@ class FIFOBroadcastChannel(GenericChannel):
           myevent = Event(self, "messagefromchannel", eventobj.messagecontent)
           callee.trigger_event(myevent)
 
-  eventhandlers = {
-    "init": onInit,
-    "message": onMessage
-  }
+
+  def __init__(self, componentname, componentinstancenumber):
+    super().__init__(componentname, componentinstancenumber)
+    self.eventhandlers["message"] = self.onMessage
+
+
