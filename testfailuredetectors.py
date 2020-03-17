@@ -79,8 +79,9 @@ def Main():
   nx.draw(G, with_labels=True, font_weight='bold')
   plt.draw()
 
-  topo = Topology(G, AdHocNode, P2PFIFOPerfectChannel)
-
+  topo = Topology()
+  topo.constructFromGraph(G, AdHocNode, P2PFIFOPerfectChannel)
+  topo.start()
   #  nodes = []
   #  ch1 = FIFOBroadcastChannel("FIFOBroadcastChannel", 1)
   #  for i in range(3):

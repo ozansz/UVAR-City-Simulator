@@ -159,8 +159,9 @@ def Main():
   nx.draw(G, with_labels=True, font_weight='bold')
   plt.draw()
 
-  topo = Topology(G, AdHocNode, FIFOBroadcastPerfectChannel)
-
+  topo = Topology()
+  topo.constructFromGraph(G, AdHocNode, FIFOBroadcastPerfectChannel)
+  topo.start()
 
 
   plt.show()   #while (True): pass

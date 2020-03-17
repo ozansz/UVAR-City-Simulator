@@ -194,7 +194,7 @@ class Topology():
   nodes = {}
   channels = {}
 
-  def __init__(self, G: nx.Graph, nodetype, channeltype):
+  def constructFromGraph(self, G: nx.Graph, nodetype, channeltype):
     self.G = G
     nodes = list(G.nodes)
     edges = list(G.edges)
@@ -212,7 +212,7 @@ class Topology():
     ComponentRegistry().init()
 
 
-  def __init__(self, sendertype, receivertype, channeltype):
+  def constructSenderReceiver(self, sendertype, receivertype, channeltype):
 
     self.sender = sendertype(sendertype.__name__, 0)
     self.receiver = receivertype(receivertype.__name__, 1)
@@ -229,5 +229,6 @@ class Topology():
     self.sender.connectMeToChannel(PortNames.DOWN, ch)
     self.receiver.connectMeToChannel(PortNames.DOWN, ch)
 
-    registry.printComponents()
+  def start(self):
+    #registry.printComponents()
     ComponentRegistry().init()
