@@ -1,30 +1,30 @@
-from Ahc import GenericComponentModel, Event, PortNames, Topology,MessageDestinationIdentifiers
-from FailureDetectors import GenericFailureDetector
+import random
+import time
+from enum import Enum
+
+import matplotlib.pyplot as plt
+import networkx as nx
+
 from Ahc import ComponentRegistry
+from Ahc import GenericComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers
 from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
 from Channels import FIFOBroadcastPerfectChannel
-import networkx as nx
-import matplotlib.pyplot as plt
-import time, random
-import threading
-from enum import Enum
+from FailureDetectors import GenericFailureDetector
 
 registry = ComponentRegistry()
 
-
-#define your own message types
+# define your own message types
 class ApplicationLayerMessageTypes(Enum):
   PROPOSE = "PROPOSE"
   ACCEPT = "ACCEPT"
 
-#define your own message header structure
+# define your own message header structure
 class ApplicationLayerMessageHeader(GenericMessageHeader):
   pass
 
-#define your own message payload structure
+# define your own message payload structure
 class ApplicationLayerMessagePayload(GenericMessagePayload):
   pass
-
 
 class ApplicationLayerComponent(GenericComponentModel):
   def onInit(self, eventobj: Event):
@@ -32,7 +32,8 @@ class ApplicationLayerComponent(GenericComponentModel):
     proposedval = random.randint(0, 100)
     randval = random.randint(0, 1)
     if randval == 0:
-      hdr = ApplicationLayerMessageHeader(ApplicationLayerMessageTypes.PROPOSE, self.componentinstancenumber, MessageDestinationIdentifiers.NETWORKLAYERBROADCAST)
+      hdr = ApplicationLayerMessageHeader(ApplicationLayerMessageTypes.PROPOSE, self.componentinstancenumber,
+                                          MessageDestinationIdentifiers.NETWORKLAYERBROADCAST)
       payload = ApplicationLayerMessagePayload("23")
       proposalmessage = GenericMessage(hdr, payload)
       randdelay = random.randint(0, 5)
@@ -54,11 +55,11 @@ class ApplicationLayerComponent(GenericComponentModel):
       print("Attribute Error")
 
   # print(f"{self.componentname}.{self.componentinstancenumber}: Gotton message {eventobj.content} ")
-    # value = eventobj.content.value
-    # value += 1
-    # newmsg = MessageContent( value )
-    # myevent = Event( self, "agree", newmsg )
-    # self.trigger_event(myevent)
+  # value = eventobj.content.value
+  # value += 1
+  # newmsg = MessageContent( value )
+  # myevent = Event( self, "agree", newmsg )
+  # self.trigger_event(myevent)
 
   def onPropose(self, eventobj: Event):
     hdr = ApplicationLayerMessageHeader(ApplicationLayerMessageTypes.ACCEPT, self.componentinstancenumber,
@@ -163,8 +164,7 @@ def Main():
   topo.constructFromGraph(G, AdHocNode, FIFOBroadcastPerfectChannel)
   topo.start()
 
-
-  plt.show()   #while (True): pass
+  plt.show()  # while (True): pass
 
 if __name__ == "__main__":
   Main()

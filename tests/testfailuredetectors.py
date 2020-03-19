@@ -1,8 +1,9 @@
-from Ahc import GenericComponentModel, Event, PortNames, Topology, ComponentRegistry
-from FailureDetectors import GenericFailureDetector
-from Channels import P2PFIFOPerfectChannel
-import networkx as nx
 import matplotlib.pyplot as plt
+import networkx as nx
+
+from Ahc import GenericComponentModel, Event, PortNames, Topology, ComponentRegistry
+from Channels import P2PFIFOPerfectChannel
+from FailureDetectors import GenericFailureDetector
 
 registry = ComponentRegistry()
 
@@ -25,7 +26,6 @@ class LinkLayerComponent(GenericComponentModel):
     self.eventhandlers["messagefromtop"] = self.onMessageFromTop
     self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
     self.eventhandlers["timerexpired"] = self.onTimerExpired
-
 
 class AdHocNode(GenericComponentModel):
 
@@ -51,12 +51,10 @@ class AdHocNode(GenericComponentModel):
     self.linklayer.connectMeToComponent(PortNames.DOWN, self)
     self.connectMeToComponent(PortNames.UP, self.linklayer)
 
-
-    #First initialize the super, then add your own event handlers...
+    # First initialize the super, then add your own event handlers...
     super().__init__(componentname, componentid)
     self.eventhandlers["messagefromtop"] = self.onMessageFromTop
     self.eventhandlers["messagefromchannel"] = self.onMessageFromChannel
-
 
 class MessageContent:
   def __init__(self, value, mynodeid):
@@ -69,13 +67,22 @@ def Main():
   # G.add_edges_from([(1, 2), (2, 3), (3,4)])
 
   # https://networkx.github.io/documentation/stable/index.html
-  G = nx.random_geometric_graph(5, 0.5)
+  G = nx.random_geometric_graph(9, 0.5)
   nx.draw(G, with_labels=True, font_weight='bold')
   plt.draw()
 
   topo = Topology()
   topo.constructFromGraph(G, AdHocNode, P2PFIFOPerfectChannel)
-  topo.start()
+  topo.computeForwardingTable()
+  topo.printForwardingTable()
+
+  print(topo.getNextHop(0,1))
+
+  print(topo.getNeighbors(0))
+
+  #topo.start()
+
+
   #  nodes = []
   #  ch1 = FIFOBroadcastChannel("FIFOBroadcastChannel", 1)
   #  for i in range(3):

@@ -1,15 +1,16 @@
-from Ahc import GenericComponentModel, Event, Topology, ComponentRegistry, GenericMessage, GenericMessageHeader, GenericMessagePayload
-from Channels import P2PFIFOPerfectChannel,P2PFIFOFairLossChannel
-import networkx as nx
 import matplotlib.pyplot as plt
+import networkx as nx
 import time
+
+from Ahc import GenericComponentModel, Event, Topology, ComponentRegistry, GenericMessage, GenericMessageHeader
+from Channels import P2PFIFOFairLossChannel
 
 registry = ComponentRegistry()
 
 class GenericSender(GenericComponentModel):
   def onInit(self, eventobj: Event):
     self.sendcnt = 0
-    #print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
+    # print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
     self.sendself(Event(self, "generatemessage", "..."))
 
   def onGenerateMessage(self, eventobj: Event):
@@ -35,8 +36,10 @@ class GenericReceiver(GenericComponentModel):
   def onMessageFromChannel(self, eventobj: Event):
     self.recvcnt = self.recvcnt + 1
     self.sentcnt = eventobj.messagecontent.payload
-    print(f"{self.recvcnt/self.sentcnt}")
-    #print("Progress {:2.2}".format(self.recvcnt/self.sentcnt), end="\r")
+    print(f"{self.recvcnt / self.sentcnt}")
+    # print(nx.adjacency_matrix(Topology().G).todense())
+    # print("Progress {:2.2}".format(self.recvcnt/self.sentcnt), end="\r")
+    Topology().shortestpathtoall(self.componentinstancenumber)
 
   def __init__(self, componentname, componentinstancenumber):
     super().__init__(componentname, componentinstancenumber)
@@ -44,11 +47,15 @@ class GenericReceiver(GenericComponentModel):
 
 def Main():
   topo = Topology()
+
   topo.constructSenderReceiver(GenericSender, GenericReceiver, P2PFIFOFairLossChannel)
   nx.draw(topo.G, with_labels=True, font_weight='bold')
   plt.draw()
   topo.channels["0-1"].setPacketLossProbability(0.1)
   topo.channels["0-1"].setAverageNumberOfDuplicates(0)
+
+  #topo.computeForwardingTable()
+
   topo.start()
   plt.show()
   # while (True): pass   #plt.show() handles this

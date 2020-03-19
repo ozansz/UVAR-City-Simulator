@@ -1,7 +1,7 @@
-import queue
-from threading import Thread
 import datetime
+import queue
 from enum import Enum
+from threading import Thread
 import networkx as nx
 
 #############TIMING ASSUMPTIONS
@@ -53,14 +53,12 @@ class GenericMessage:
     self.header = header
     self.payload = payload
 
-
 class Event:
   def __init__(self, caller, event, messagecontent):
     self.caller = caller
     self.event = event
     self.time = datetime.datetime.now()
     self.messagecontent = messagecontent
-
 
 def singleton(cls):
   instance = [None]
@@ -110,8 +108,8 @@ registry = ComponentRegistry()
 
 class GenericComponentModel:
 
-#  def onInit(self, eventobj: Event):
-#    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
+  #  def onInit(self, eventobj: Event):
+  #    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def __init__(self, componentname, componentinstancenumber, num_worker_threads=1):
     self.eventhandlers = {}
@@ -130,10 +128,9 @@ class GenericComponentModel:
     self.registry.addComponent(self)
 
     for i in range(self.num_worker_threads):
-      t = Thread (target=self.queuehandler, args = [self.inputqueue])
+      t = Thread(target=self.queuehandler, args=[self.inputqueue])
       t.daemon = True
       t.start()
-
 
   def connectMeToComponent(self, name, component):
     try:
@@ -168,22 +165,21 @@ class GenericComponentModel:
   def sendself(self, event: Event):
     self.trigger_event(event)
 
-
   def queuehandler(self, myqueue):
     while True:
       workitem = myqueue.get()
       if workitem.event in self.eventhandlers:
-        #print(f"OUTPUT I am {self.eventhandlers[workitem.event]}: {workitem.caller.componentname} called me at {workitem.time}" )
+        # print(f"OUTPUT I am {self.eventhandlers[workitem.event]}: {workitem.caller.componentname} called me at {workitem.time}" )
         self.eventhandlers[workitem.event](eventobj=workitem)  # call the handler
       else:
         print(f"Event Handler: {workitem.event} is not implemented")
       myqueue.task_done()
 
-
   def trigger_event(self, eventobj: Event):
     self.inputqueue.put_nowait(eventobj)
 
 
+@singleton
 class Topology():
   nodes = {}
   channels = {}
@@ -196,15 +192,11 @@ class Topology():
       cc = nodetype(nodetype.__name__, i)
       self.nodes[i] = cc
     for k in edges:
-      ch = channeltype(channeltype.__name__, str(k[0])+"-"+str(k[1]))
+      ch = channeltype(channeltype.__name__, str(k[0]) + "-" + str(k[1]))
       self.channels[k] = ch
       print(f"Edges: Node {k[0]} is connected to Node {k[1]}")
       self.nodes[k[0]].connectMeToChannel(PortNames.DOWN, ch)
       self.nodes[k[1]].connectMeToChannel(PortNames.DOWN, ch)
-
-    registry.printComponents()
-    ComponentRegistry().init()
-
 
   def constructSenderReceiver(self, sendertype, receivertype, channeltype):
 
@@ -223,6 +215,48 @@ class Topology():
     self.sender.connectMeToChannel(PortNames.DOWN, ch)
     self.receiver.connectMeToChannel(PortNames.DOWN, ch)
 
+  def allpairsshortestpath(self):
+    return dict(nx.all_pairs_shortest_path(self.G))
+
+  def shortestpathtoall(self, myid):
+    path = dict(nx.all_pairs_shortest_path(self.G))
+    nodecnt = len(self.G.nodes)
+    for i in range(nodecnt):
+      print(path[myid][i])
+
   def start(self):
-    #registry.printComponents()
+    # registry.printComponents()
     ComponentRegistry().init()
+
+  def computeForwardingTable(self):
+    inf = float('inf')
+    N = len(self.G.nodes)
+    self.ForwardingTable = [[0 for i in range(N)] for j in range(N)]
+    path = dict(nx.all_pairs_shortest_path(self.G))
+    print(f"There are {N} nodes")
+    for i in range(N):
+      for j in range(N):
+        try:
+          mypath = path[i][j]
+          # print(f"{i}to{j} path = {path[i][j]} nexthop = {path[i][j][1]}")
+          self.ForwardingTable[i][j] = path[i][j][1]
+        except KeyError:
+          # print(f"{i}to{j}path = NONE")
+          self.ForwardingTable[i][j] = inf  # No paths
+        except IndexError:
+          # print(f"{i}to{j} nexthop = NONE")
+          self.ForwardingTable[i][j] = i  # There is a path but length = 1 (self)
+
+  # all-seeing eye routing table contruction
+  def printForwardingTable(self):
+    registry.printComponents()
+    print('\n'.join([''.join(['{:4}'.format(item) for item in row])
+                     for row in self.ForwardingTable]))
+
+  #returns the all-seeing eye routing based next hop id
+  def getNextHop(self, fromId, toId):
+    return self.ForwardingTable[fromId][toId]
+
+  # Returns the list of neighbors of a node
+  def getNeighbors(self, nodeId):
+    return sorted([ neighbor for neighbor in self.G.neighbors(nodeId)])
