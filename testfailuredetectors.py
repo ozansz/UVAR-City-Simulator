@@ -26,12 +26,6 @@ class LinkLayerComponent(GenericComponentModel):
     self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
     self.eventhandlers["timerexpired"] = self.onTimerExpired
 
-#  eventhandlers = {
-#    "init": onInit,
-#    "messagefromtop": onMessageFromTop,
-#    "messagefrombottom": onMessageFromBottom,
-#    "timerexpired": onTimerExpired
-#  }
 
 class AdHocNode(GenericComponentModel):
 
@@ -39,7 +33,7 @@ class AdHocNode(GenericComponentModel):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "message", eventobj.messagecontent))
+    self.senddown(Event(self, "sendtochannel", eventobj.messagecontent))
 
   def onMessageFromChannel(self, eventobj: Event):
     self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))

@@ -15,8 +15,8 @@ class GenericSender(GenericComponentModel):
   def onGenerateMessage(self, eventobj: Event):
     self.sendcnt = self.sendcnt + 1
     msg = GenericMessage(GenericMessageHeader("AL", 0, 1), self.sendcnt)
-    self.senddown(Event(self, "message", msg))
-    #time.sleep(0.1)
+    self.senddown(Event(self, "sendtochannel", msg))
+    #time.sleep(1)
     self.sendself(Event(self, "generatemessage", "..."))
 
   def onMessageFromChannel(self, eventobj: Event):
@@ -48,7 +48,7 @@ def Main():
   nx.draw(topo.G, with_labels=True, font_weight='bold')
   plt.draw()
   topo.channels["0-1"].setPacketLossProbability(0.1)
-  topo.channels["0-1"].setAverageNumberOfDuplicates(2)
+  topo.channels["0-1"].setAverageNumberOfDuplicates(0)
   topo.start()
   plt.show()
   # while (True): pass   #plt.show() handles this

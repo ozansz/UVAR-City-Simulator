@@ -113,12 +113,13 @@ class GenericComponentModel:
 #  def onInit(self, eventobj: Event):
 #    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
-  def __init__(self, componentname, componentinstancenumber, num_worker_threads=2):
+  def __init__(self, componentname, componentinstancenumber, num_worker_threads=1):
     self.eventhandlers = {}
     self.eventhandlers["init"] = self.onInit
     self.inputqueue = queue.Queue()
     self.componentname = componentname
     self.componentinstancenumber = componentinstancenumber
+    self.num_worker_threads = num_worker_threads
     try:
       if self.ports:
         pass
@@ -128,18 +129,10 @@ class GenericComponentModel:
     self.registry = ComponentRegistry()
     self.registry.addComponent(self)
 
-
-
-
-    for i in range(num_worker_threads):
-      t = Thread(target=self.worker)
+    for i in range(self.num_worker_threads):
+      t = Thread (target=self.queuehandler, args = [self.inputqueue])
       t.daemon = True
       t.start()
-
-
-  #eventhandlers = {
-  #  "init": onInit
-  #}
 
 
   def connectMeToComponent(self, name, component):
@@ -175,16 +168,17 @@ class GenericComponentModel:
   def sendself(self, event: Event):
     self.trigger_event(event)
 
-  def worker(self):
+
+  def queuehandler(self, myqueue):
     while True:
-      workitem = self.inputqueue.get()
+      workitem = myqueue.get()
       if workitem.event in self.eventhandlers:
-        # print(
-        #    f"I am {self.eventhandlers[workitem.event]}: {workitem.caller.componentname} called me at {workitem.time}" )
+        #print(f"OUTPUT I am {self.eventhandlers[workitem.event]}: {workitem.caller.componentname} called me at {workitem.time}" )
         self.eventhandlers[workitem.event](eventobj=workitem)  # call the handler
       else:
         print(f"Event Handler: {workitem.event} is not implemented")
-      self.inputqueue.task_done()
+      myqueue.task_done()
+
 
   def trigger_event(self, eventobj: Event):
     self.inputqueue.put_nowait(eventobj)

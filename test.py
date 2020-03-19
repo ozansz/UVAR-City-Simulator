@@ -124,7 +124,7 @@ class AdHocNode(GenericComponentModel):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "message", eventobj.messagecontent))
+    self.senddown(Event(self, "sendtochannel", eventobj.messagecontent))
 
   def onMessageFromChannel(self, eventobj: Event):
     self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
