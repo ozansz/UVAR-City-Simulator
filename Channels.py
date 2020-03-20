@@ -38,11 +38,11 @@ class GenericChannel(GenericComponentModel):
   # Overwrite onDeliverToComponent if you want to do something in the last pipeline stage
   # onDeliver will deliver the message from the channel to the receiver component using messagefromchannel event
   def onDeliverToComponent(self, eventobj: Event):
-    callername = eventobj.caller.componentname + str(eventobj.caller.componentinstancenumber)
+    callername = eventobj.caller.componentinstancenumber
     for item in self.ports:
       callees = self.ports[item]
       for callee in callees:
-        calleename = callee.componentname + str(callee.componentinstancenumber)
+        calleename = callee.componentinstancenumber
         # print(f"I am connected to {calleename}. Will check if I have to distribute it to {item}")
         if calleename == callername:
           pass
@@ -74,6 +74,24 @@ class P2PFIFOPerfectChannel(GenericChannel):
   def onInit(self, eventobj: Event):
     # print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
     pass
+
+  def onDeliverToComponent(self, eventobj: Event):
+    msg = eventobj.messagecontent
+    nexthop = msg.header.nexthop
+    callername = eventobj.caller.componentinstancenumber
+    for item in self.ports:
+      callees = self.ports[item]
+      for callee in callees:
+        calleename = callee.componentinstancenumber
+        # print(f"I am connected to {calleename}. Will check if I have to distribute it to {item}")
+        if calleename == callername:
+          pass
+        else:
+          if calleename == nexthop:
+            myevent = Event(self, "messagefromchannel", eventobj.messagecontent)
+            callee.trigger_event(myevent)
+          else:
+            pass
 
   # Overwriting to limit the number of connected components
   def connectMeToComponent(self, name, component):

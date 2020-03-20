@@ -8,7 +8,8 @@ import networkx as nx
 from Ahc import ComponentRegistry
 from Ahc import GenericComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers
 from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
-from Channels import FIFOBroadcastPerfectChannel
+from Channels import P2PFIFOPerfectChannel
+from NetworkLayers import NetworkLayerComponent
 from FailureDetectors import GenericFailureDetector
 
 registry = ComponentRegistry()
@@ -22,6 +23,7 @@ class ApplicationLayerMessageTypes(Enum):
 class ApplicationLayerMessageHeader(GenericMessageHeader):
   pass
 
+
 # define your own message payload structure
 class ApplicationLayerMessagePayload(GenericMessagePayload):
   pass
@@ -30,10 +32,11 @@ class ApplicationLayerComponent(GenericComponentModel):
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
     proposedval = random.randint(0, 100)
-    randval = random.randint(0, 1)
-    if randval == 0:
-      hdr = ApplicationLayerMessageHeader(ApplicationLayerMessageTypes.PROPOSE, self.componentinstancenumber,
-                                          MessageDestinationIdentifiers.NETWORKLAYERBROADCAST)
+
+    if self.componentinstancenumber == 0:
+      #destination = random.randint(len(Topology.G.nodes))
+      destination = 1
+      hdr = ApplicationLayerMessageHeader(ApplicationLayerMessageTypes.PROPOSE, self.componentinstancenumber, destination)
       payload = ApplicationLayerMessagePayload("23")
       proposalmessage = GenericMessage(hdr, payload)
       randdelay = random.randint(0, 5)
@@ -62,8 +65,8 @@ class ApplicationLayerComponent(GenericComponentModel):
   # self.trigger_event(myevent)
 
   def onPropose(self, eventobj: Event):
-    hdr = ApplicationLayerMessageHeader(ApplicationLayerMessageTypes.ACCEPT, self.componentinstancenumber,
-                                        MessageDestinationIdentifiers.NETWORKLAYERBROADCAST)
+    destination = 1
+    hdr = ApplicationLayerMessageHeader(ApplicationLayerMessageTypes.ACCEPT, self.componentinstancenumber, destination)
     payload = ApplicationLayerMessagePayload("23")
     proposalmessage = GenericMessage(hdr, payload)
     self.senddown(Event(self, "messagefromtop", proposalmessage))
@@ -80,25 +83,6 @@ class ApplicationLayerComponent(GenericComponentModel):
     self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
     self.eventhandlers["agree"] = self.onAgree
     self.eventhandlers["timerexpired"] = self.onAgree
-
-class NetworkLayerComponent(GenericComponentModel):
-  def onInit(self, eventobj: Event):
-    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
-
-  def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "messagefromtop", eventobj.messagecontent))
-
-  def onMessageFromBottom(self, eventobj: Event):
-    self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
-
-  def onTimerExpired(self, eventobj: Event):
-    pass
-
-  def __init__(self, componentname, componentinstancenumber):
-    super().__init__(componentname, componentinstancenumber)
-    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
-    self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
-    self.eventhandlers["timerexpired"] = self.onTimerExpired
 
 class LinkLayerComponent(GenericComponentModel):
   def onInit(self, eventobj: Event):
@@ -135,13 +119,13 @@ class AdHocNode(GenericComponentModel):
     self.appllayer = ApplicationLayerComponent("ApplicationLayer", componentid)
     self.netlayer = NetworkLayerComponent("NetworkLayer", componentid)
     self.linklayer = LinkLayerComponent("LinkLayer", componentid)
-    self.failuredetect = GenericFailureDetector("FailureDetector", componentid)
+    #self.failuredetect = GenericFailureDetector("FailureDetector", componentid)
 
     # CONNECTIONS AMONG SUBCOMPONENTS
     self.appllayer.connectMeToComponent(PortNames.DOWN, self.netlayer)
-    self.failuredetect.connectMeToComponent(PortNames.DOWN, self.netlayer)
+    #self.failuredetect.connectMeToComponent(PortNames.DOWN, self.netlayer)
     self.netlayer.connectMeToComponent(PortNames.UP, self.appllayer)
-    self.netlayer.connectMeToComponent(PortNames.UP, self.failuredetect)
+    #self.netlayer.connectMeToComponent(PortNames.UP, self.failuredetect)
     self.netlayer.connectMeToComponent(PortNames.DOWN, self.linklayer)
     self.linklayer.connectMeToComponent(PortNames.UP, self.netlayer)
 
@@ -154,14 +138,17 @@ class AdHocNode(GenericComponentModel):
     self.eventhandlers["messagefromchannel"] = self.onMessageFromChannel
 
 def Main():
-  G = nx.Graph()
-  G.add_nodes_from([1, 2])
-  G.add_edges_from([(1, 2)])
+  #G = nx.Graph()
+  #G.add_nodes_from([1, 2])
+  #G.add_edges_from([(1, 2)])
+  #nx.draw(G, with_labels=True, font_weight='bold')
+  #plt.draw()
+  G = nx.random_geometric_graph(19, 0.5)
   nx.draw(G, with_labels=True, font_weight='bold')
   plt.draw()
 
   topo = Topology()
-  topo.constructFromGraph(G, AdHocNode, FIFOBroadcastPerfectChannel)
+  topo.constructFromGraph(G, AdHocNode, P2PFIFOPerfectChannel)
   topo.start()
 
   plt.show()  # while (True): pass

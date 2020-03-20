@@ -21,6 +21,7 @@ import networkx as nx
 ###### TOPOLOGY MANAGEMENT
 # TODO: Given a graph as input, generate the topology....
 
+inf = float('inf')
 
 class MessageDestinationIdentifiers(Enum):
   LINKLAYERBROADCAST = "LINKLAYERBROADCAST",  # sinngle-hop broadcast, means all directly connected nodes
@@ -43,10 +44,11 @@ class GenericMessagePayload():
     self.messagepayload = messagepayload
 
 class GenericMessageHeader():
-  def __init__(self, messagetype, messagefrom, messageto):
+  def __init__(self, messagetype, messagefrom, messageto, nexthop=float('inf')):
     self.messagetype = messagetype
     self.messagefrom = messagefrom
     self.messageto = messageto
+    self.nexthop = nexthop
 
 class GenericMessage:
   def __init__(self, header, payload):
@@ -194,7 +196,7 @@ class Topology():
     for k in edges:
       ch = channeltype(channeltype.__name__, str(k[0]) + "-" + str(k[1]))
       self.channels[k] = ch
-      print(f"Edges: Node {k[0]} is connected to Node {k[1]}")
+      #print(f"Edges: Node {k[0]} is connected to Node {k[1]}")
       self.nodes[k[0]].connectMeToChannel(PortNames.DOWN, ch)
       self.nodes[k[1]].connectMeToChannel(PortNames.DOWN, ch)
 
@@ -226,10 +228,11 @@ class Topology():
 
   def start(self):
     # registry.printComponents()
+    self.computeForwardingTable()
     ComponentRegistry().init()
 
   def computeForwardingTable(self):
-    inf = float('inf')
+
     N = len(self.G.nodes)
     self.ForwardingTable = [[0 for i in range(N)] for j in range(N)]
     path = dict(nx.all_pairs_shortest_path(self.G))
