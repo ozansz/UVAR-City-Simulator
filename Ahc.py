@@ -1,8 +1,9 @@
 import datetime
 import queue
 from enum import Enum
-from threading import Thread
+from threading import Thread, Lock
 import networkx as nx
+import matplotlib.pyplot as plt
 
 #############TIMING ASSUMPTIONS
 # TODO: Event handling time, message sending time, assumptions about clock (drift, skew, ...)
@@ -24,8 +25,8 @@ import networkx as nx
 inf = float('inf')
 
 class MessageDestinationIdentifiers(Enum):
-  LINKLAYERBROADCAST = "LINKLAYERBROADCAST",  # sinngle-hop broadcast, means all directly connected nodes
-  NETWORKLAYERBROADCAST = "NETWORKLAYERBROADCAST"  # For flooding over multiple-hops means all connected nodes to me over one or more links
+  LINKLAYERBROADCAST = -1,  # sinngle-hop broadcast, means all directly connected nodes
+  NETWORKLAYERBROADCAST = -2  # For flooding over multiple-hops means all connected nodes to me over one or more links
 
 class PortList(dict):
   def __setitem__(self, key, value):
@@ -44,16 +45,19 @@ class GenericMessagePayload():
     self.messagepayload = messagepayload
 
 class GenericMessageHeader():
-  def __init__(self, messagetype, messagefrom, messageto, nexthop=float('inf')):
+  def __init__(self, messagetype, messagefrom, messageto, nexthop=float('inf'), sequencenumber = -1):
     self.messagetype = messagetype
     self.messagefrom = messagefrom
     self.messageto = messageto
     self.nexthop = nexthop
+    self.sequencenumber = sequencenumber
+
 
 class GenericMessage:
   def __init__(self, header, payload):
     self.header = header
     self.payload = payload
+    self.uniqueid = str(header.messagefrom)+"-"+ str(header.sequencenumber)
 
 class Event:
   def __init__(self, caller, event, messagecontent):
@@ -112,6 +116,8 @@ class GenericComponentModel:
 
   #  def onInit(self, eventobj: Event):
   #    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
+  def onInit(self, eventobj: Event):
+    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def __init__(self, componentname, componentinstancenumber, num_worker_threads=1):
     self.eventhandlers = {}
@@ -186,6 +192,8 @@ class Topology():
   nodes = {}
   channels = {}
 
+
+
   def constructFromGraph(self, G: nx.Graph, nodetype, channeltype):
     self.G = G
     nodes = list(G.nodes)
@@ -228,7 +236,11 @@ class Topology():
 
   def start(self):
     # registry.printComponents()
+    N = len(self.G.nodes)
     self.computeForwardingTable()
+    self.nodecolors = ['b'] * N
+    self.nodepos = nx.drawing.spring_layout(self.G)
+    self.lock = Lock()
     ComponentRegistry().init()
 
   def computeForwardingTable(self):
@@ -263,3 +275,10 @@ class Topology():
   # Returns the list of neighbors of a node
   def getNeighbors(self, nodeId):
     return sorted([ neighbor for neighbor in self.G.neighbors(nodeId)])
+
+
+  def plot(self):
+    self.lock.acquire()
+    nx.draw(self.G, self.nodepos, node_color=self.nodecolors, with_labels=True, font_weight='bold')
+    plt.draw()
+    self.lock.release()

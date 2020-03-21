@@ -1,0 +1,70 @@
+
+from Ahc import GenericComponentModel, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology, MessageDestinationIdentifiers
+from enum import Enum
+import time
+import random
+
+
+
+# define your own message types
+class BroadcastingMessageTypes(Enum):
+  SIMPLEFLOOD = "SIMPLEFLOOD"
+
+# define your own message header structure
+class BroadcastingMessageHeader(GenericMessageHeader):
+  pass
+
+# define your own message payload structure
+class BroadcastingMessagePayload(GenericMessagePayload):
+  pass
+
+
+class SimpleFlooding(GenericComponentModel):
+
+  def onInit(self, eventobj: Event):
+    self.broadcastdb = []
+    if self.componentinstancenumber == 0:
+      self.sendself(Event(self,"messagefromtop", None))
+
+  def senddownbroadcast(self,eventobj: Event, whosends, sequencenumber):
+    applmsg = eventobj.messagecontent
+    destination = MessageDestinationIdentifiers.NETWORKLAYERBROADCAST
+    nexthop = MessageDestinationIdentifiers.LINKLAYERBROADCAST
+    print(f"{self.componentinstancenumber} will SEND a message to {destination} over {nexthop}")
+    hdr = BroadcastingMessageHeader(BroadcastingMessageTypes.SIMPLEFLOOD, whosends, destination,
+                                    nexthop, sequencenumber)
+    payload = applmsg
+    broadcastmessage = GenericMessage(hdr, payload)
+    self.senddown(Event(self, "messagefromtop", broadcastmessage))
+    self.broadcastdb.append(broadcastmessage.uniqueid)
+
+  def updateTopology(self):
+    Topology().nodecolors[self.componentinstancenumber] = 'r'
+    Topology().plot()
+
+
+  def onMessageFromTop(self, eventobj: Event):
+    self.updateTopology()
+    self.senddownbroadcast(eventobj, self.componentinstancenumber, 1)
+
+  def onMessageFromBottom(self, eventobj: Event):
+    msg = eventobj.messagecontent
+    hdr = msg.header
+    payload = msg.payload
+
+    if hdr.messagetype == BroadcastingMessageTypes.SIMPLEFLOOD:
+      if hdr.messageto == self.componentinstancenumber or hdr.messageto == MessageDestinationIdentifiers.NETWORKLAYERBROADCAST:  # Add if broadcast....
+        if (msg.uniqueid in self.broadcastdb):
+          pass #we have already handled this flooded message
+        else:
+          #Send to higher layers
+          self.updateTopology()
+          self.sendup(Event(self, "messagefrombottom", payload))
+          #Also continue flooding once
+          time.sleep(random.randint(1,3))
+          self.senddownbroadcast(eventobj, eventobj.messagecontent.header.messagefrom, eventobj.messagecontent.header.sequencenumber)
+
+  def __init__(self, componentname, componentinstancenumber):
+    super().__init__(componentname, componentinstancenumber)
+    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
+    self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom

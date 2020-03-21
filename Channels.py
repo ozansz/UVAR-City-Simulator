@@ -87,11 +87,9 @@ class P2PFIFOPerfectChannel(GenericChannel):
         if calleename == callername:
           pass
         else:
-          if calleename == nexthop:
-            myevent = Event(self, "messagefromchannel", eventobj.messagecontent)
-            callee.trigger_event(myevent)
-          else:
-            pass
+          myevent = Event(self, "messagefromchannel", eventobj.messagecontent)
+          callee.trigger_event(myevent)
+
 
   # Overwriting to limit the number of connected components
   def connectMeToComponent(self, name, component):

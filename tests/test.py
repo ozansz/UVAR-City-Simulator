@@ -8,9 +8,9 @@ import networkx as nx
 from Ahc import ComponentRegistry
 from Ahc import GenericComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers
 from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
-from Channels import P2PFIFOPerfectChannel
-from NetworkLayers import NetworkLayerComponent
-from FailureDetectors import GenericFailureDetector
+from Channels import  FIFOBroadcastPerfectChannel
+from AllSeeingEyeNetworkLayer import AllSeingEyeNetworkLayer
+from GenericLinkLayer import GenericLinkLayer
 
 registry = ComponentRegistry()
 
@@ -84,25 +84,6 @@ class ApplicationLayerComponent(GenericComponentModel):
     self.eventhandlers["agree"] = self.onAgree
     self.eventhandlers["timerexpired"] = self.onAgree
 
-class LinkLayerComponent(GenericComponentModel):
-  def onInit(self, eventobj: Event):
-    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
-
-  def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "messagefromtop", eventobj.messagecontent))
-
-  def onMessageFromBottom(self, eventobj: Event):
-    self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
-
-  def onTimerExpired(self, eventobj: Event):
-    pass
-
-  def __init__(self, componentname, componentinstancenumber):
-    super().__init__(componentname, componentinstancenumber)
-    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
-    self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
-    self.eventhandlers["timerexpired"] = self.onTimerExpired
-
 class AdHocNode(GenericComponentModel):
 
   def onInit(self, eventobj: Event):
@@ -117,8 +98,8 @@ class AdHocNode(GenericComponentModel):
   def __init__(self, componentname, componentid):
     # SUBCOMPONENTS
     self.appllayer = ApplicationLayerComponent("ApplicationLayer", componentid)
-    self.netlayer = NetworkLayerComponent("NetworkLayer", componentid)
-    self.linklayer = LinkLayerComponent("LinkLayer", componentid)
+    self.netlayer = AllSeingEyeNetworkLayer("NetworkLayer", componentid)
+    self.linklayer = GenericLinkLayer("LinkLayer", componentid)
     #self.failuredetect = GenericFailureDetector("FailureDetector", componentid)
 
     # CONNECTIONS AMONG SUBCOMPONENTS
@@ -148,7 +129,7 @@ def Main():
   plt.draw()
 
   topo = Topology()
-  topo.constructFromGraph(G, AdHocNode, P2PFIFOPerfectChannel)
+  topo.constructFromGraph(G, AdHocNode, FIFOBroadcastPerfectChannel)
   topo.start()
 
   plt.show()  # while (True): pass

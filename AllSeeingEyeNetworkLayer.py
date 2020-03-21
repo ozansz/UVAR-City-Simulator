@@ -1,5 +1,5 @@
 
-from Ahc import GenericComponentModel, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology
+from Ahc import GenericComponentModel, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology, MessageDestinationIdentifiers
 from enum import Enum
 
 # define your own message types
@@ -14,10 +14,7 @@ class NetworkLayerMessageHeader(GenericMessageHeader):
 class NetworkLayerMessagePayload(GenericMessagePayload):
   pass
 
-
-class NetworkLayerComponent(GenericComponentModel):
-  def onInit(self, eventobj: Event):
-    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
+class AllSeingEyeNetworkLayer(GenericComponentModel):
 
   def onMessageFromTop(self, eventobj: Event):
     # Encapsulate the SDU in network layer PDU
@@ -33,19 +30,20 @@ class NetworkLayerComponent(GenericComponentModel):
     else:
       print(f"NO PATH: {self.componentinstancenumber} will NOTSEND a message to {destination} over {nexthop}")
 
-
   def onMessageFromBottom(self, eventobj: Event):
     msg = eventobj.messagecontent
     hdr = msg.header
     payload = msg.payload
-    if hdr.messageto == self.componentinstancenumber:  # Add if broadcast....
+
+    if hdr.messageto == self.componentinstancenumber or hdr.messageto == MessageDestinationIdentifiers.NETWORKLAYERBROADCAST:  # Add if broadcast....
       self.sendup(Event(self, "messagefrombottom", payload))
+      print(f"I received a message to {hdr.messageto} and I am {self.componentinstancenumber}")
     else:
       destination = hdr.messageto
       nexthop = Topology().getNextHop(self.componentinstancenumber, destination)
       if nexthop != float('inf') :
         newhdr = NetworkLayerMessageHeader(NetworkLayerMessageTypes.NETMSG, self.componentinstancenumber, destination, nexthop)
-        newpayload = eventobj.messagecontent
+        newpayload = eventobj.messagecontent.payload
         msg = GenericMessage(newhdr, newpayload)
         self.senddown(Event(self, "messagefromtop", msg))
         print(f"{self.componentinstancenumber} will FORWARD a message to {destination} over {nexthop}")
