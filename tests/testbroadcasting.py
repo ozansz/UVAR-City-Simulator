@@ -1,15 +1,11 @@
-import random
-import time
-from enum import Enum
-
 import matplotlib.pyplot as plt
 import networkx as nx
-
+import random
 from Ahc import ComponentRegistry
 from Ahc import GenericComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers
 from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
-from Channels import P2PFIFOPerfectChannel, FIFOBroadcastPerfectChannel
-from Broadcasting.Broadcasting import SimpleFlooding
+from Channels import P2PFIFOPerfectChannel, FIFOBroadcastPerfectChannel,P2PFIFOFairLossChannel
+from Broadcasting.Broadcasting import ControlledFlooding
 from GenericLinkLayer import GenericLinkLayer
 from FailureDetectors import GenericFailureDetector
 
@@ -24,7 +20,7 @@ class AdHocNode(GenericComponentModel):
 
   def __init__(self, componentname, componentid):
     # SUBCOMPONENTS
-    self.broadcastservice = SimpleFlooding("SimpleFlooding", componentid)
+    self.broadcastservice = ControlledFlooding("SimpleFlooding", componentid)
     self.linklayer = GenericLinkLayer("LinkLayer", componentid)
 
     # CONNECTIONS AMONG SUBCOMPONENTS
@@ -47,10 +43,17 @@ def Main():
   #plt.draw()
   G = nx.random_geometric_graph(19, 0.5)
   topo = Topology()
-  topo.constructFromGraph(G, AdHocNode, P2PFIFOPerfectChannel)
+  topo.constructFromGraph(G, AdHocNode, P2PFIFOFairLossChannel)
+  for ch in topo.channels:
+    topo.channels[ch].setPacketLossProbability(random.random())
+    topo.channels[ch].setAverageNumberOfDuplicates(0)
+
   topo.start()
   topo.plot()
   plt.show()  # while (True): pass
+
+
+
 
   print(topo.nodecolors)
 

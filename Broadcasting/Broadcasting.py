@@ -1,10 +1,9 @@
-
-from Ahc import GenericComponentModel, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology, MessageDestinationIdentifiers
-from enum import Enum
-import time
 import random
+import time
+from enum import Enum
 
-
+from Ahc import GenericComponentModel, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology, \
+  MessageDestinationIdentifiers
 
 # define your own message types
 class BroadcastingMessageTypes(Enum):
@@ -18,15 +17,13 @@ class BroadcastingMessageHeader(GenericMessageHeader):
 class BroadcastingMessagePayload(GenericMessagePayload):
   pass
 
-
-class SimpleFlooding(GenericComponentModel):
-
+class ControlledFlooding(GenericComponentModel):
   def onInit(self, eventobj: Event):
     self.broadcastdb = []
     if self.componentinstancenumber == 0:
-      self.sendself(Event(self,"messagefromtop", None))
+      self.sendself(Event(self, "messagefromtop", None))
 
-  def senddownbroadcast(self,eventobj: Event, whosends, sequencenumber):
+  def senddownbroadcast(self, eventobj: Event, whosends, sequencenumber):
     applmsg = eventobj.messagecontent
     destination = MessageDestinationIdentifiers.NETWORKLAYERBROADCAST
     nexthop = MessageDestinationIdentifiers.LINKLAYERBROADCAST
@@ -42,7 +39,6 @@ class SimpleFlooding(GenericComponentModel):
     Topology().nodecolors[self.componentinstancenumber] = 'r'
     Topology().plot()
 
-
   def onMessageFromTop(self, eventobj: Event):
     self.updateTopology()
     self.senddownbroadcast(eventobj, self.componentinstancenumber, 1)
@@ -51,18 +47,18 @@ class SimpleFlooding(GenericComponentModel):
     msg = eventobj.messagecontent
     hdr = msg.header
     payload = msg.payload
-
     if hdr.messagetype == BroadcastingMessageTypes.SIMPLEFLOOD:
       if hdr.messageto == self.componentinstancenumber or hdr.messageto == MessageDestinationIdentifiers.NETWORKLAYERBROADCAST:  # Add if broadcast....
         if (msg.uniqueid in self.broadcastdb):
-          pass #we have already handled this flooded message
+          pass  # we have already handled this flooded message
         else:
-          #Send to higher layers
+          # Send to higher layers
           self.updateTopology()
           self.sendup(Event(self, "messagefrombottom", payload))
-          #Also continue flooding once
-          time.sleep(random.randint(1,3))
-          self.senddownbroadcast(eventobj, eventobj.messagecontent.header.messagefrom, eventobj.messagecontent.header.sequencenumber)
+          # Also continue flooding once
+          time.sleep(random.randint(1, 3))
+          self.senddownbroadcast(eventobj, eventobj.messagecontent.header.messagefrom,
+                                 eventobj.messagecontent.header.sequencenumber)
 
   def __init__(self, componentname, componentinstancenumber):
     super().__init__(componentname, componentinstancenumber)
