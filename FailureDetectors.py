@@ -2,7 +2,7 @@ import time
 from enum import Enum
 
 from Ahc import Event
-from Ahc import GenericComponentModel
+from Ahc import ComponentModel
 from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
 from Ahc import MessageDestinationIdentifiers
 
@@ -26,7 +26,7 @@ class FailureDetectorMessagePayload(GenericMessagePayload):
 # define your own component model extending the generic component model
 # do not forget to define onInit event handler...MUST!
 
-class GenericFailureDetector(GenericComponentModel):
+class FailureDetector(ComponentModel):
   def onTxAliveMessage(self, eventobj: Event):
     time.sleep(self.alivemessageperiod)  # Period of alive messages
     # Send down the I'm Alive mesage
@@ -41,7 +41,7 @@ class GenericFailureDetector(GenericComponentModel):
 
   def onMessageFromBottom(self, eventobj: Event):
     try:
-      failuredetectormessage = eventobj.messagecontent
+      failuredetectormessage = eventobj.eventcontent
       hdr = failuredetectormessage.header
       payload = failuredetectormessage.payload
       if hdr.messagetype == FailureDetectorMessageTypes.IAMALIVE:

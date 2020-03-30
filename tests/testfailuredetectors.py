@@ -1,22 +1,22 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from Ahc import GenericComponentModel, Event, PortNames, Topology, ComponentRegistry
+from Ahc import ComponentModel, Event, PortNames, Topology, ComponentRegistry
 from Channels import P2PFIFOPerfectChannel
-from FailureDetectors import GenericFailureDetector
+from FailureDetectors import FailureDetector
 
 registry = ComponentRegistry()
 
-class LinkLayerComponent(GenericComponentModel):
+class LinkLayerComponent(ComponentModel):
 
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "messagefromtop", eventobj.messagecontent))
+    self.senddown(Event(self, "messagefromtop", eventobj.eventcontent))
 
   def onMessageFromBottom(self, eventobj: Event):
-    self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
+    self.sendup(Event(self, "messagefrombottom", eventobj.eventcontent))
 
   def onTimerExpired(self, eventobj: Event):
     pass
@@ -27,21 +27,21 @@ class LinkLayerComponent(GenericComponentModel):
     self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
     self.eventhandlers["timerexpired"] = self.onTimerExpired
 
-class AdHocNode(GenericComponentModel):
+class AdHocNode(ComponentModel):
 
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "sendtochannel", eventobj.messagecontent))
+    self.senddown(Event(self, "sendtochannel", eventobj.eventcontent))
 
   def onMessageFromChannel(self, eventobj: Event):
-    self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
+    self.sendup(Event(self, "messagefrombottom", eventobj.eventcontent))
 
   def __init__(self, componentname, componentid):
     # SUBCOMPONENTS
     self.linklayer = LinkLayerComponent("LinkLayer", componentid)
-    self.failuredetect = GenericFailureDetector("FailureDetector", componentid)
+    self.failuredetect = FailureDetector("FailureDetector", componentid)
 
     # CONNECTIONS AMONG SUBCOMPONENTS
     self.failuredetect.connectMeToComponent(PortNames.DOWN, self.linklayer)

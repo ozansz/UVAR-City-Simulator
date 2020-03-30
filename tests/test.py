@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 from Ahc import ComponentRegistry
-from Ahc import GenericComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers
+from Ahc import ComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers
 from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
 from Channels import  FIFOBroadcastPerfectChannel
 from AllSeeingEyeNetworkLayer import AllSeingEyeNetworkLayer
-from GenericLinkLayer import GenericLinkLayer
+from GenericLinkLayer import LinkLayer
 
 registry = ComponentRegistry()
 
@@ -28,7 +28,7 @@ class ApplicationLayerMessageHeader(GenericMessageHeader):
 class ApplicationLayerMessagePayload(GenericMessagePayload):
   pass
 
-class ApplicationLayerComponent(GenericComponentModel):
+class ApplicationLayerComponent(ComponentModel):
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
     proposedval = random.randint(0, 100)
@@ -47,7 +47,7 @@ class ApplicationLayerComponent(GenericComponentModel):
 
   def onMessageFromBottom(self, eventobj: Event):
     try:
-      applmessage = eventobj.messagecontent
+      applmessage = eventobj.eventcontent
       hdr = applmessage.header
       payload = applmessage.payload
       if hdr.messagetype == ApplicationLayerMessageTypes.ACCEPT:
@@ -72,7 +72,7 @@ class ApplicationLayerComponent(GenericComponentModel):
     self.senddown(Event(self, "messagefromtop", proposalmessage))
 
   def onAgree(self, eventobj: Event):
-    print(f"Agreed on {eventobj.messagecontent}")
+    print(f"Agreed on {eventobj.eventcontent}")
 
   def onTimerExpired(self, eventobj: Event):
     pass
@@ -84,22 +84,22 @@ class ApplicationLayerComponent(GenericComponentModel):
     self.eventhandlers["agree"] = self.onAgree
     self.eventhandlers["timerexpired"] = self.onAgree
 
-class AdHocNode(GenericComponentModel):
+class AdHocNode(ComponentModel):
 
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "sendtochannel", eventobj.messagecontent))
+    self.senddown(Event(self, "sendtochannel", eventobj.eventcontent))
 
   def onMessageFromChannel(self, eventobj: Event):
-    self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
+    self.sendup(Event(self, "messagefrombottom", eventobj.eventcontent))
 
   def __init__(self, componentname, componentid):
     # SUBCOMPONENTS
     self.appllayer = ApplicationLayerComponent("ApplicationLayer", componentid)
     self.netlayer = AllSeingEyeNetworkLayer("NetworkLayer", componentid)
-    self.linklayer = GenericLinkLayer("LinkLayer", componentid)
+    self.linklayer = LinkLayer("LinkLayer", componentid)
     #self.failuredetect = GenericFailureDetector("FailureDetector", componentid)
 
     # CONNECTIONS AMONG SUBCOMPONENTS

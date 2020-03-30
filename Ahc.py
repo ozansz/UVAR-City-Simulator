@@ -2,8 +2,9 @@ import datetime
 import queue
 from enum import Enum
 from threading import Thread, Lock
-import networkx as nx
+
 import matplotlib.pyplot as plt
+import networkx as nx
 
 #############TIMING ASSUMPTIONS
 # TODO: Event handling time, message sending time, assumptions about clock (drift, skew, ...)
@@ -28,6 +29,7 @@ class MessageDestinationIdentifiers(Enum):
   LINKLAYERBROADCAST = -1,  # sinngle-hop broadcast, means all directly connected nodes
   NETWORKLAYERBROADCAST = -2  # For flooding over multiple-hops means all connected nodes to me over one or more links
 
+# A Dictionary that holds a list for the same key
 class PortList(dict):
   def __setitem__(self, key, value):
     try:
@@ -45,26 +47,25 @@ class GenericMessagePayload():
     self.messagepayload = messagepayload
 
 class GenericMessageHeader():
-  def __init__(self, messagetype, messagefrom, messageto, nexthop=float('inf'), sequencenumber = -1):
+  def __init__(self, messagetype, messagefrom, messageto, nexthop=float('inf'), sequencenumber=-1):
     self.messagetype = messagetype
     self.messagefrom = messagefrom
     self.messageto = messageto
     self.nexthop = nexthop
     self.sequencenumber = sequencenumber
 
-
 class GenericMessage:
   def __init__(self, header, payload):
     self.header = header
     self.payload = payload
-    self.uniqueid = str(header.messagefrom)+"-"+ str(header.sequencenumber)
+    self.uniqueid = str(header.messagefrom) + "-" + str(header.sequencenumber)
 
 class Event:
-  def __init__(self, caller, event, messagecontent):
-    self.caller = caller
+  def __init__(self, eventsource, event, eventcontent):
+    self.eventsource = eventsource
     self.event = event
     self.time = datetime.datetime.now()
-    self.messagecontent = messagecontent
+    self.eventcontent = eventcontent
 
 def singleton(cls):
   instance = [None]
@@ -112,10 +113,8 @@ class ComponentRegistry():
 
 registry = ComponentRegistry()
 
-class GenericComponentModel:
+class ComponentModel:
 
-  #  def onInit(self, eventobj: Event):
-  #    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
@@ -159,19 +158,19 @@ class GenericComponentModel:
   def senddown(self, event: Event):
     try:
       for p in self.ports[PortNames.DOWN]:
-        p.trigger_event(event)
+        p.triggerevent(event)
     except KeyError:
       pass
 
   def sendup(self, event: Event):
     try:
       for p in self.ports[PortNames.UP]:
-        p.trigger_event(event)
+        p.triggerevent(event)
     except:
       pass
 
   def sendself(self, event: Event):
-    self.trigger_event(event)
+    self.triggerevent(event)
 
   def queuehandler(self, myqueue):
     while True:
@@ -183,16 +182,13 @@ class GenericComponentModel:
         print(f"Event Handler: {workitem.event} is not implemented")
       myqueue.task_done()
 
-  def trigger_event(self, eventobj: Event):
+  def triggerevent(self, eventobj: Event):
     self.inputqueue.put_nowait(eventobj)
-
 
 @singleton
 class Topology():
   nodes = {}
   channels = {}
-
-
 
   def constructFromGraph(self, G: nx.Graph, nodetype, channeltype):
     self.G = G
@@ -204,7 +200,7 @@ class Topology():
     for k in edges:
       ch = channeltype(channeltype.__name__, str(k[0]) + "-" + str(k[1]))
       self.channels[k] = ch
-      #print(f"Edges: Node {k[0]} is connected to Node {k[1]}")
+      # print(f"Edges: Node {k[0]} is connected to Node {k[1]}")
       self.nodes[k[0]].connectMeToChannel(PortNames.DOWN, ch)
       self.nodes[k[1]].connectMeToChannel(PortNames.DOWN, ch)
 
@@ -268,14 +264,13 @@ class Topology():
     print('\n'.join([''.join(['{:4}'.format(item) for item in row])
                      for row in self.ForwardingTable]))
 
-  #returns the all-seeing eye routing based next hop id
+  # returns the all-seeing eye routing based next hop id
   def getNextHop(self, fromId, toId):
     return self.ForwardingTable[fromId][toId]
 
   # Returns the list of neighbors of a node
   def getNeighbors(self, nodeId):
-    return sorted([ neighbor for neighbor in self.G.neighbors(nodeId)])
-
+    return sorted([neighbor for neighbor in self.G.neighbors(nodeId)])
 
   def plot(self):
     self.lock.acquire()

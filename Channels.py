@@ -3,7 +3,7 @@ import random
 from threading import Thread
 
 from Ahc import Event
-from Ahc import GenericComponentModel
+from Ahc import ComponentModel
 
 # TODO: Channel failure models: lossy-link, fair-loss, stubborn links, perfect links (WHAT ELSE?), FIFO perfect
 # TODO: Logged perfect links (tolerance to crashes), authenticated perfect links
@@ -20,25 +20,25 @@ from Ahc import GenericComponentModel
 # The output queue then will send the message up to the connected component(s) using the "messagefromchannel" event
 # The components that will use the channel directly, will have to handle "messagefromchannel" event
 
-class GenericChannel(GenericComponentModel):
+class Channel(ComponentModel):
 
   # Overwrite onSendToChannel if you want to do something in the first pipeline stage
   def onSendToChannel(self, eventobj: Event):
     # channel receives the input message and will process the message by the process event in the next pipeline stage
-    myevent = Event(self, "processinchannel", eventobj.messagecontent)
+    myevent = Event(self, "processinchannel", eventobj.eventcontent)
     self.channelqueue.put_nowait(myevent)
 
   # Overwrite onProcessInChannel if you want to do something in interim pipeline stage
   def onProcessInChannel(self, eventobj: Event):
     # Add delay, drop, change order whatever....
     # Finally put the message in outputqueue with event deliver
-    myevent = Event(self, "delivertocomponent", eventobj.messagecontent)
+    myevent = Event(self, "delivertocomponent", eventobj.eventcontent)
     self.outputqueue.put_nowait(myevent)
 
   # Overwrite onDeliverToComponent if you want to do something in the last pipeline stage
   # onDeliver will deliver the message from the channel to the receiver component using messagefromchannel event
   def onDeliverToComponent(self, eventobj: Event):
-    callername = eventobj.caller.componentinstancenumber
+    callername = eventobj.eventsource.componentinstancenumber
     for item in self.ports:
       callees = self.ports[item]
       for callee in callees:
@@ -47,8 +47,8 @@ class GenericChannel(GenericComponentModel):
         if calleename == callername:
           pass
         else:
-          myevent = Event(self, "messagefromchannel", eventobj.messagecontent)
-          callee.trigger_event(myevent)
+          myevent = Event(self, "messagefromchannel", eventobj.eventcontent)
+          callee.triggerevent(myevent)
 
   def __init__(self, componentname, componentinstancenumber):
     super().__init__(componentname, componentinstancenumber)
@@ -70,15 +70,15 @@ class GenericChannel(GenericComponentModel):
 class AHCChannelError(Exception):
   pass
 
-class P2PFIFOPerfectChannel(GenericChannel):
+class P2PFIFOPerfectChannel(Channel):
   def onInit(self, eventobj: Event):
     # print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
     pass
 
   def onDeliverToComponent(self, eventobj: Event):
-    msg = eventobj.messagecontent
+    msg = eventobj.eventcontent
     nexthop = msg.header.nexthop
-    callername = eventobj.caller.componentinstancenumber
+    callername = eventobj.eventsource.componentinstancenumber
     for item in self.ports:
       callees = self.ports[item]
       for callee in callees:
@@ -87,8 +87,8 @@ class P2PFIFOPerfectChannel(GenericChannel):
         if calleename == callername:
           pass
         else:
-          myevent = Event(self, "messagefromchannel", eventobj.messagecontent)
-          callee.trigger_event(myevent)
+          myevent = Event(self, "messagefromchannel", eventobj.eventcontent)
+          callee.triggerevent(myevent)
 
 
   # Overwriting to limit the number of connected components
@@ -110,7 +110,7 @@ class P2PFIFOFairLossChannel(P2PFIFOPerfectChannel):
 
   def onProcessInChannel(self, eventobj: Event):
     if random.random() < self.prob:
-      myevent = Event(self, "delivertocomponent", eventobj.messagecontent)
+      myevent = Event(self, "delivertocomponent", eventobj.eventcontent)
       self.outputqueue.put_nowait(myevent)
     if random.random() < self.duplicationprobability:
       self.channelqueue.put_nowait(eventobj)
@@ -124,7 +124,7 @@ class P2PFIFOFairLossChannel(P2PFIFOPerfectChannel):
     else:
       self.duplicationprobability = 0
 
-class FIFOBroadcastPerfectChannel(GenericChannel):
+class FIFOBroadcastPerfectChannel(Channel):
 
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")

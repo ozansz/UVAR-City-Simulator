@@ -1,6 +1,6 @@
 
 
-from Ahc import GenericComponentModel, MessageDestinationIdentifiers, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology
+from Ahc import ComponentModel, MessageDestinationIdentifiers, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology
 from enum import Enum
 
 # define your own message types
@@ -16,12 +16,12 @@ class LinkLayerMessagePayload(GenericMessagePayload):
   pass
 
 
-class GenericLinkLayer(GenericComponentModel):
+class LinkLayer(ComponentModel):
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    abovehdr = eventobj.messagecontent.header
+    abovehdr = eventobj.eventcontent.header
     if abovehdr == MessageDestinationIdentifiers.NETWORKLAYERBROADCAST:
       hdr = LinkLayerMessageHeader(LinkLayerMessageTypes.LINKMSG, self.componentinstancenumber,
                                    MessageDestinationIdentifiers.LINKLAYERBROADCAST)
@@ -29,12 +29,12 @@ class GenericLinkLayer(GenericComponentModel):
       hdr = LinkLayerMessageHeader(LinkLayerMessageTypes.LINKMSG, self.componentinstancenumber,
                                    abovehdr.nexthop)
 
-    payload = eventobj.messagecontent
+    payload = eventobj.eventcontent
     msg = GenericMessage(hdr, payload)
     self.senddown(Event(self, "messagefromtop", msg))
 
   def onMessageFromBottom(self, eventobj: Event):
-    msg = eventobj.messagecontent
+    msg = eventobj.eventcontent
     hdr = msg.header
     payload = msg.payload
     if hdr.messageto == self.componentinstancenumber or hdr.messageto == MessageDestinationIdentifiers.LINKLAYERBROADCAST :

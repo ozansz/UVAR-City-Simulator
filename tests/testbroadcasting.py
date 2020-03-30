@@ -2,26 +2,26 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import random
 from Ahc import ComponentRegistry
-from Ahc import GenericComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers
+from Ahc import ComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers
 from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
 from Channels import P2PFIFOPerfectChannel, FIFOBroadcastPerfectChannel,P2PFIFOFairLossChannel
 from Broadcasting.Broadcasting import ControlledFlooding
-from GenericLinkLayer import GenericLinkLayer
-from FailureDetectors import GenericFailureDetector
+from GenericLinkLayer import LinkLayer
+from FailureDetectors import FailureDetector
 
 registry = ComponentRegistry()
 
-class AdHocNode(GenericComponentModel):
+class AdHocNode(ComponentModel):
   def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "sendtochannel", eventobj.messagecontent))
+    self.senddown(Event(self, "sendtochannel", eventobj.eventcontent))
 
   def onMessageFromChannel(self, eventobj: Event):
-    self.sendup(Event(self, "messagefrombottom", eventobj.messagecontent))
+    self.sendup(Event(self, "messagefrombottom", eventobj.eventcontent))
 
   def __init__(self, componentname, componentid):
     # SUBCOMPONENTS
     self.broadcastservice = ControlledFlooding("SimpleFlooding", componentid)
-    self.linklayer = GenericLinkLayer("LinkLayer", componentid)
+    self.linklayer = LinkLayer("LinkLayer", componentid)
 
     # CONNECTIONS AMONG SUBCOMPONENTS
     self.broadcastservice.connectMeToComponent(PortNames.DOWN, self.linklayer)

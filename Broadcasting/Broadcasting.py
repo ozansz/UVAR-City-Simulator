@@ -2,7 +2,7 @@ import random
 import time
 from enum import Enum
 
-from Ahc import GenericComponentModel, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology, \
+from Ahc import ComponentModel, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology, \
   MessageDestinationIdentifiers
 
 # define your own message types
@@ -17,14 +17,17 @@ class BroadcastingMessageHeader(GenericMessageHeader):
 class BroadcastingMessagePayload(GenericMessagePayload):
   pass
 
-class ControlledFlooding(GenericComponentModel):
+
+
+
+class ControlledFlooding(ComponentModel):
   def onInit(self, eventobj: Event):
     self.broadcastdb = []
     if self.componentinstancenumber == 0:
       self.sendself(Event(self, "messagefromtop", None))
 
   def senddownbroadcast(self, eventobj: Event, whosends, sequencenumber):
-    applmsg = eventobj.messagecontent
+    applmsg = eventobj.eventcontent
     destination = MessageDestinationIdentifiers.NETWORKLAYERBROADCAST
     nexthop = MessageDestinationIdentifiers.LINKLAYERBROADCAST
     print(f"{self.componentinstancenumber} will SEND a message to {destination} over {nexthop}")
@@ -44,7 +47,7 @@ class ControlledFlooding(GenericComponentModel):
     self.senddownbroadcast(eventobj, self.componentinstancenumber, 1)
 
   def onMessageFromBottom(self, eventobj: Event):
-    msg = eventobj.messagecontent
+    msg = eventobj.eventcontent
     hdr = msg.header
     payload = msg.payload
     if hdr.messagetype == BroadcastingMessageTypes.SIMPLEFLOOD:
@@ -57,8 +60,8 @@ class ControlledFlooding(GenericComponentModel):
           self.sendup(Event(self, "messagefrombottom", payload))
           # Also continue flooding once
           time.sleep(random.randint(1, 3))
-          self.senddownbroadcast(eventobj, eventobj.messagecontent.header.messagefrom,
-                                 eventobj.messagecontent.header.sequencenumber)
+          self.senddownbroadcast(eventobj, eventobj.eventcontent.header.messagefrom,
+                                 eventobj.eventcontent.header.sequencenumber)
 
   def __init__(self, componentname, componentinstancenumber):
     super().__init__(componentname, componentinstancenumber)

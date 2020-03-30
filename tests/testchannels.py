@@ -2,12 +2,12 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import time
 
-from Ahc import GenericComponentModel, Event, Topology, ComponentRegistry, GenericMessage, GenericMessageHeader
+from Ahc import ComponentModel, Event, Topology, ComponentRegistry, GenericMessage, GenericMessageHeader
 from Channels import P2PFIFOFairLossChannel
 
 registry = ComponentRegistry()
 
-class GenericSender(GenericComponentModel):
+class Sender(ComponentModel):
   def onInit(self, eventobj: Event):
     self.sendcnt = 0
     # print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
@@ -28,14 +28,14 @@ class GenericSender(GenericComponentModel):
     self.eventhandlers["messagefromchannel"] = self.onMessageFromChannel
     self.eventhandlers["generatemessage"] = self.onGenerateMessage
 
-class GenericReceiver(GenericComponentModel):
+class Receiver(ComponentModel):
   def onInit(self, eventobj: Event):
     self.recvcnt = 0
     print("Received Percentage:\n")
 
   def onMessageFromChannel(self, eventobj: Event):
     self.recvcnt = self.recvcnt + 1
-    self.sentcnt = eventobj.messagecontent.payload
+    self.sentcnt = eventobj.eventcontent.payload
     print(f"{self.recvcnt / self.sentcnt}")
     # print(nx.adjacency_matrix(Topology().G).todense())
     # print("Progress {:2.2}".format(self.recvcnt/self.sentcnt), end="\r")
@@ -48,7 +48,7 @@ class GenericReceiver(GenericComponentModel):
 def Main():
   topo = Topology()
 
-  topo.constructSenderReceiver(GenericSender, GenericReceiver, P2PFIFOFairLossChannel)
+  topo.constructSenderReceiver(Sender, Receiver, P2PFIFOFairLossChannel)
   nx.draw(topo.G, with_labels=True, font_weight='bold')
   plt.draw()
   topo.channels["0-1"].setPacketLossProbability(0.1)
