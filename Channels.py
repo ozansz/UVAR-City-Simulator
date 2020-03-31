@@ -26,6 +26,8 @@ class ChannelEventTypes(Enum):
   DELIVERTOCOMPONENT = "delivertocomponent"
 
 class Channel(ComponentModel):
+  def onInit(self, eventobj: Event):
+    pass
 
   # Overwrite onSendToChannel if you want to do something in the first pipeline stage
   def onMessageFromTop(self, eventobj: Event):

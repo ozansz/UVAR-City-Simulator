@@ -126,7 +126,8 @@ registry = ComponentRegistry()
 class ComponentModel:
 
   def onInit(self, eventobj: Event):
-    print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
+    #print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
+    pass
 
   def onMessageFromBottom(self, eventobj: Event):
     print(f"{EventTypes.MFRB} {self.componentname}.{self.componentinstancenumber}")
@@ -277,7 +278,7 @@ class Topology():
     N = len(self.G.nodes)
     self.ForwardingTable = [[0 for i in range(N)] for j in range(N)]
     path = dict(nx.all_pairs_shortest_path(self.G))
-    print(f"There are {N} nodes")
+    #print(f"There are {N} nodes")
     for i in range(N):
       for j in range(N):
         try:
