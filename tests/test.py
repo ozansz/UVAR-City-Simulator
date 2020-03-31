@@ -7,8 +7,8 @@ import networkx as nx
 
 from Ahc import ComponentRegistry
 from Ahc import ComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers
-from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
-from Channels import  FIFOBroadcastPerfectChannel
+from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage, EventTypes
+from Channels import P2PFIFOPerfectChannel
 from AllSeeingEyeNetworkLayer import AllSeingEyeNetworkLayer
 from GenericLinkLayer import LinkLayer
 
@@ -69,7 +69,7 @@ class ApplicationLayerComponent(ComponentModel):
     hdr = ApplicationLayerMessageHeader(ApplicationLayerMessageTypes.ACCEPT, self.componentinstancenumber, destination)
     payload = ApplicationLayerMessagePayload("23")
     proposalmessage = GenericMessage(hdr, payload)
-    self.senddown(Event(self, "messagefromtop", proposalmessage))
+    self.senddown(Event(self, EventTypes.MFRT, proposalmessage))
 
   def onAgree(self, eventobj: Event):
     print(f"Agreed on {eventobj.eventcontent}")
@@ -80,7 +80,6 @@ class ApplicationLayerComponent(ComponentModel):
   def __init__(self, componentname, componentinstancenumber):
     super().__init__(componentname, componentinstancenumber)
     self.eventhandlers["propose"] = self.onPropose
-    self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
     self.eventhandlers["agree"] = self.onAgree
     self.eventhandlers["timerexpired"] = self.onAgree
 
@@ -90,10 +89,10 @@ class AdHocNode(ComponentModel):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "sendtochannel", eventobj.eventcontent))
+    self.senddown(Event(self, EventTypes.MFRT, eventobj.eventcontent))
 
-  def onMessageFromChannel(self, eventobj: Event):
-    self.sendup(Event(self, "messagefrombottom", eventobj.eventcontent))
+  def onMessageFromBottom(self, eventobj: Event):
+    self.sendup(Event(self, EventTypes.MFRB, eventobj.eventcontent))
 
   def __init__(self, componentname, componentid):
     # SUBCOMPONENTS
@@ -115,8 +114,6 @@ class AdHocNode(ComponentModel):
     self.connectMeToComponent(PortNames.UP, self.linklayer)
 
     super().__init__(componentname, componentid)
-    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
-    self.eventhandlers["messagefromchannel"] = self.onMessageFromChannel
 
 def Main():
   #G = nx.Graph()
@@ -129,7 +126,7 @@ def Main():
   plt.draw()
 
   topo = Topology()
-  topo.constructFromGraph(G, AdHocNode, FIFOBroadcastPerfectChannel)
+  topo.constructFromGraph(G, AdHocNode, P2PFIFOPerfectChannel)
   topo.start()
 
   plt.show()  # while (True): pass

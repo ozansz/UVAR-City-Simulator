@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import time
 
-from Ahc import ComponentModel, Event, Topology, ComponentRegistry, GenericMessage, GenericMessageHeader
+from Ahc import ComponentModel, Event, Topology, ComponentRegistry, GenericMessage, GenericMessageHeader, EventTypes
 from Channels import P2PFIFOFairLossChannel
 
 registry = ComponentRegistry()
@@ -16,16 +16,15 @@ class Sender(ComponentModel):
   def onGenerateMessage(self, eventobj: Event):
     self.sendcnt = self.sendcnt + 1
     msg = GenericMessage(GenericMessageHeader("AL", 0, 1), self.sendcnt)
-    self.senddown(Event(self, "sendtochannel", msg))
+    self.senddown(Event(self, EventTypes.MFRT, msg))
     #time.sleep(1)
     self.sendself(Event(self, "generatemessage", "..."))
 
-  def onMessageFromChannel(self, eventobj: Event):
+  def onMessageFromBottom(self, eventobj: Event):
     pass
 
   def __init__(self, componentname, componentinstancenumber):
     super().__init__(componentname, componentinstancenumber)
-    self.eventhandlers["messagefromchannel"] = self.onMessageFromChannel
     self.eventhandlers["generatemessage"] = self.onGenerateMessage
 
 class Receiver(ComponentModel):
@@ -33,7 +32,7 @@ class Receiver(ComponentModel):
     self.recvcnt = 0
     print("Received Percentage:\n")
 
-  def onMessageFromChannel(self, eventobj: Event):
+  def onMessageFromBottom(self, eventobj: Event):
     self.recvcnt = self.recvcnt + 1
     self.sentcnt = eventobj.eventcontent.payload
     print(f"{self.recvcnt / self.sentcnt}")
@@ -41,9 +40,6 @@ class Receiver(ComponentModel):
     # print("Progress {:2.2}".format(self.recvcnt/self.sentcnt), end="\r")
     Topology().shortestpathtoall(self.componentinstancenumber)
 
-  def __init__(self, componentname, componentinstancenumber):
-    super().__init__(componentname, componentinstancenumber)
-    self.eventhandlers["messagefromchannel"] = self.onMessageFromChannel
 
 def Main():
   topo = Topology()

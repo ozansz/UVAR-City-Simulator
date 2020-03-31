@@ -3,7 +3,7 @@ from enum import Enum
 
 from Ahc import Event
 from Ahc import ComponentModel
-from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
+from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage,EventTypes
 from Ahc import MessageDestinationIdentifiers
 
 #################FAILURE ASSUMPTIONS
@@ -35,7 +35,7 @@ class FailureDetector(ComponentModel):
                                        MessageDestinationIdentifiers.LINKLAYERBROADCAST)
     payload = FailureDetectorMessagePayload(f"I am Node.{self.componentinstancenumber} and I am live ")
     failuredetectormessage = GenericMessage(hdr, payload)
-    self.senddown(Event(self, "messagefromtop", failuredetectormessage))
+    self.senddown(Event(self, EventTypes.MFRT, failuredetectormessage))
     # Schedule the next I'm Alive message
     self.sendself(Event(self, "txalivemessage", "timer for alive message"))
 
@@ -58,5 +58,4 @@ class FailureDetector(ComponentModel):
 
   def __init__(self, componentname, componentinstancenumber):
     super().__init__(componentname, componentinstancenumber)
-    self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
     self.eventhandlers["txalivemessage"] = self.onTxAliveMessage

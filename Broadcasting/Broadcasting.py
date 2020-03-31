@@ -3,7 +3,7 @@ import time
 from enum import Enum
 
 from Ahc import ComponentModel, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology, \
-  MessageDestinationIdentifiers
+  MessageDestinationIdentifiers, EventTypes
 
 # define your own message types
 class BroadcastingMessageTypes(Enum):
@@ -17,14 +17,11 @@ class BroadcastingMessageHeader(GenericMessageHeader):
 class BroadcastingMessagePayload(GenericMessagePayload):
   pass
 
-
-
-
 class ControlledFlooding(ComponentModel):
   def onInit(self, eventobj: Event):
     self.broadcastdb = []
     if self.componentinstancenumber == 0:
-      self.sendself(Event(self, "messagefromtop", None))
+      self.sendself(Event(self, EventTypes.MFRT, None))
 
   def senddownbroadcast(self, eventobj: Event, whosends, sequencenumber):
     applmsg = eventobj.eventcontent
@@ -35,7 +32,7 @@ class ControlledFlooding(ComponentModel):
                                     nexthop, sequencenumber)
     payload = applmsg
     broadcastmessage = GenericMessage(hdr, payload)
-    self.senddown(Event(self, "messagefromtop", broadcastmessage))
+    self.senddown(Event(self, EventTypes.MFRT, broadcastmessage))
     self.broadcastdb.append(broadcastmessage.uniqueid)
 
   def updateTopology(self):
@@ -57,13 +54,12 @@ class ControlledFlooding(ComponentModel):
         else:
           # Send to higher layers
           self.updateTopology()
-          self.sendup(Event(self, "messagefrombottom", payload))
+          self.sendup(Event(self, EventTypes.MFRB, payload))
           # Also continue flooding once
           time.sleep(random.randint(1, 3))
           self.senddownbroadcast(eventobj, eventobj.eventcontent.header.messagefrom,
                                  eventobj.eventcontent.header.sequencenumber)
 
-  def __init__(self, componentname, componentinstancenumber):
-    super().__init__(componentname, componentinstancenumber)
-    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
-    self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
+#  def __init__(self, componentname, componentinstancenumber):
+#    super().__init__(componentname, componentinstancenumber)
+#     #add events here

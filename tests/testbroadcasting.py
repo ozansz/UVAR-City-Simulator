@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import random
 from Ahc import ComponentRegistry
-from Ahc import ComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers
+from Ahc import ComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers, EventTypes
 from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
 from Channels import P2PFIFOPerfectChannel, FIFOBroadcastPerfectChannel,P2PFIFOFairLossChannel
 from Broadcasting.Broadcasting import ControlledFlooding
@@ -13,10 +13,10 @@ registry = ComponentRegistry()
 
 class AdHocNode(ComponentModel):
   def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "sendtochannel", eventobj.eventcontent))
+    self.senddown(Event(self, EventTypes.MFRT, eventobj.eventcontent))
 
-  def onMessageFromChannel(self, eventobj: Event):
-    self.sendup(Event(self, "messagefrombottom", eventobj.eventcontent))
+  def onMessageFromBottom(self, eventobj: Event):
+    self.sendup(Event(self, EventTypes.MFRB, eventobj.eventcontent))
 
   def __init__(self, componentname, componentid):
     # SUBCOMPONENTS
@@ -32,8 +32,8 @@ class AdHocNode(ComponentModel):
     self.connectMeToComponent(PortNames.UP, self.linklayer)
 
     super().__init__(componentname, componentid)
-    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
-    self.eventhandlers["messagefromchannel"] = self.onMessageFromChannel
+#    self.eventhandlers[EventTypes.MFRT] = self.onMessageFromTop
+#    self.eventhandlers["messagefromchannel"] = self.onMessageFromChannel
 
 def Main():
   #G = nx.Graph()

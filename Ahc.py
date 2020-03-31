@@ -25,6 +25,14 @@ import networkx as nx
 
 inf = float('inf')
 
+class EventTypes(Enum):
+  INIT = "init"
+  MFRB = "msgfrombottom"
+  MFRT = "msgfromtop"
+  MFRP = "msgfrompeer"
+
+
+
 class MessageDestinationIdentifiers(Enum):
   LINKLAYERBROADCAST = -1,  # sinngle-hop broadcast, means all directly connected nodes
   NETWORKLAYERBROADCAST = -2  # For flooding over multiple-hops means all connected nodes to me over one or more links
@@ -41,6 +49,7 @@ class PortList(dict):
 class PortNames(Enum):
   DOWN = "PORTDOWN"
   UP = "PORTUP"
+  PEER = "PORTTOPEER"
 
 class GenericMessagePayload():
   def __init__(self, messagepayload):
@@ -100,7 +109,7 @@ class ComponentRegistry():
   def init(self):
     for itemkey in self.components:
       cmp = self.components[itemkey]
-      cmp.inputqueue.put_nowait(Event(self, "init", None))
+      cmp.inputqueue.put_nowait(Event(self, EventTypes.INIT, None))
 
   def printComponents(self):
     for itemkey in self.components:
@@ -118,9 +127,23 @@ class ComponentModel:
   def onInit(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
+  def onMessageFromBottom(self, eventobj: Event):
+    print(f"{EventTypes.MFRB} {self.componentname}.{self.componentinstancenumber}")
+
+  def onMessageFromTop(self, eventobj: Event):
+    print(f"{EventTypes.MFRT}  {self.componentname}.{self.componentinstancenumber}")
+
+  def onMessageFromPeer(self, eventobj: Event):
+    print(f"{EventTypes.MFRP}  {self.componentname}.{self.componentinstancenumber}")
+
   def __init__(self, componentname, componentinstancenumber, num_worker_threads=1):
     self.eventhandlers = {}
-    self.eventhandlers["init"] = self.onInit
+    # Add default handlers to all instantiated components.
+    # If a component overwrites the __init__ method it has to call the super().__init__ method
+    self.eventhandlers[EventTypes.INIT] = self.onInit
+    self.eventhandlers[EventTypes.MFRB] = self.onMessageFromBottom
+    self.eventhandlers[EventTypes.MFRT] = self.onMessageFromTop
+    self.eventhandlers[EventTypes.MFRP] = self.onMessageFromPeer
     self.inputqueue = queue.Queue()
     self.componentname = componentname
     self.componentinstancenumber = componentinstancenumber
@@ -146,6 +169,7 @@ class ComponentModel:
       self.ports = PortList()
       self.ports[name] = component
 
+
   def connectMeToChannel(self, name, channel):
     try:
       self.ports[name] = channel
@@ -159,7 +183,7 @@ class ComponentModel:
     try:
       for p in self.ports[PortNames.DOWN]:
         p.triggerevent(event)
-    except KeyError:
+    except:
       pass
 
   def sendup(self, event: Event):
@@ -168,6 +192,14 @@ class ComponentModel:
         p.triggerevent(event)
     except:
       pass
+
+  def sendpeers(self, event: Event):
+    try:
+      for p in self.ports[PortNames.PEER]:
+        p.triggerevent(event)
+    except:
+      pass
+
 
   def sendself(self, event: Event):
     self.triggerevent(event)

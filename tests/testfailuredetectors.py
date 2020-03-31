@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from Ahc import ComponentModel, Event, PortNames, Topology, ComponentRegistry
+from Ahc import ComponentModel, Event, PortNames, Topology, ComponentRegistry,EventTypes
 from Channels import P2PFIFOPerfectChannel
 from FailureDetectors import FailureDetector
 
@@ -13,18 +13,16 @@ class LinkLayerComponent(ComponentModel):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "messagefromtop", eventobj.eventcontent))
+    self.senddown(Event(self, EventTypes.MFRT, eventobj.eventcontent))
 
   def onMessageFromBottom(self, eventobj: Event):
-    self.sendup(Event(self, "messagefrombottom", eventobj.eventcontent))
+    self.sendup(Event(self, EventTypes.MFRB, eventobj.eventcontent))
 
   def onTimerExpired(self, eventobj: Event):
     pass
 
   def __init__(self, componentname, componentinstancenumber):
     super().__init__(componentname, componentinstancenumber)
-    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
-    self.eventhandlers["messagefrombottom"] = self.onMessageFromBottom
     self.eventhandlers["timerexpired"] = self.onTimerExpired
 
 class AdHocNode(ComponentModel):
@@ -33,10 +31,10 @@ class AdHocNode(ComponentModel):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
   def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, "sendtochannel", eventobj.eventcontent))
+    self.senddown(Event(self, EventTypes.MFRT, eventobj.eventcontent))
 
-  def onMessageFromChannel(self, eventobj: Event):
-    self.sendup(Event(self, "messagefrombottom", eventobj.eventcontent))
+  def onMessageFromBottom(self, eventobj: Event):
+    self.sendup(Event(self, EventTypes.MFRB, eventobj.eventcontent))
 
   def __init__(self, componentname, componentid):
     # SUBCOMPONENTS
@@ -53,8 +51,6 @@ class AdHocNode(ComponentModel):
 
     # First initialize the super, then add your own event handlers...
     super().__init__(componentname, componentid)
-    self.eventhandlers["messagefromtop"] = self.onMessageFromTop
-    self.eventhandlers["messagefromchannel"] = self.onMessageFromChannel
 
 class MessageContent:
   def __init__(self, value, mynodeid):
