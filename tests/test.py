@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 from Ahc import ComponentRegistry
-from Ahc import ComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers
+from Ahc import ComponentModel, Event, ConnectorTypes, Topology, MessageDestinationIdentifiers
 from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage, EventTypes
 from Channels import P2PFIFOPerfectChannel
 from AllSeeingEyeNetworkLayer import AllSeingEyeNetworkLayer
@@ -102,16 +102,16 @@ class AdHocNode(ComponentModel):
     #self.failuredetect = GenericFailureDetector("FailureDetector", componentid)
 
     # CONNECTIONS AMONG SUBCOMPONENTS
-    self.appllayer.connectMeToComponent(PortNames.DOWN, self.netlayer)
+    self.appllayer.connectMeToComponent(ConnectorTypes.DOWN, self.netlayer)
     #self.failuredetect.connectMeToComponent(PortNames.DOWN, self.netlayer)
-    self.netlayer.connectMeToComponent(PortNames.UP, self.appllayer)
+    self.netlayer.connectMeToComponent(ConnectorTypes.UP, self.appllayer)
     #self.netlayer.connectMeToComponent(PortNames.UP, self.failuredetect)
-    self.netlayer.connectMeToComponent(PortNames.DOWN, self.linklayer)
-    self.linklayer.connectMeToComponent(PortNames.UP, self.netlayer)
+    self.netlayer.connectMeToComponent(ConnectorTypes.DOWN, self.linklayer)
+    self.linklayer.connectMeToComponent(ConnectorTypes.UP, self.netlayer)
 
     # Connect the bottom component to the composite component....
-    self.linklayer.connectMeToComponent(PortNames.DOWN, self)
-    self.connectMeToComponent(PortNames.UP, self.linklayer)
+    self.linklayer.connectMeToComponent(ConnectorTypes.DOWN, self)
+    self.connectMeToComponent(ConnectorTypes.UP, self.linklayer)
 
     super().__init__(componentname, componentid)
 

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import random
 from Ahc import ComponentRegistry
-from Ahc import ComponentModel, Event, PortNames, Topology, MessageDestinationIdentifiers, EventTypes
+from Ahc import ComponentModel, Event, ConnectorTypes, Topology, MessageDestinationIdentifiers, EventTypes
 from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
 from Channels import P2PFIFOPerfectChannel, FIFOBroadcastPerfectChannel,P2PFIFOFairLossChannel
 from Broadcasting.Broadcasting import ControlledFlooding
@@ -24,12 +24,12 @@ class AdHocNode(ComponentModel):
     self.linklayer = LinkLayer("LinkLayer", componentid)
 
     # CONNECTIONS AMONG SUBCOMPONENTS
-    self.broadcastservice.connectMeToComponent(PortNames.DOWN, self.linklayer)
-    self.linklayer.connectMeToComponent(PortNames.UP, self.broadcastservice)
+    self.broadcastservice.connectMeToComponent(ConnectorTypes.DOWN, self.linklayer)
+    self.linklayer.connectMeToComponent(ConnectorTypes.UP, self.broadcastservice)
 
     # Connect the bottom component to the composite component....
-    self.linklayer.connectMeToComponent(PortNames.DOWN, self)
-    self.connectMeToComponent(PortNames.UP, self.linklayer)
+    self.linklayer.connectMeToComponent(ConnectorTypes.DOWN, self)
+    self.connectMeToComponent(ConnectorTypes.UP, self.linklayer)
 
     super().__init__(componentname, componentid)
 #    self.eventhandlers[EventTypes.MFRT] = self.onMessageFromTop
@@ -47,6 +47,8 @@ def Main():
   for ch in topo.channels:
     topo.channels[ch].setPacketLossProbability(random.random())
     topo.channels[ch].setAverageNumberOfDuplicates(0)
+
+  ComponentRegistry().printComponents()
 
   topo.start()
   topo.plot()

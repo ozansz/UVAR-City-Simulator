@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from Ahc import ComponentModel, Event, PortNames, Topology, ComponentRegistry,EventTypes
+from Ahc import ComponentModel, Event, ConnectorTypes, Topology, ComponentRegistry, EventTypes
 from Channels import P2PFIFOPerfectChannel
 from FailureDetectors import FailureDetector
 
@@ -42,12 +42,12 @@ class AdHocNode(ComponentModel):
     self.failuredetect = FailureDetector("FailureDetector", componentid)
 
     # CONNECTIONS AMONG SUBCOMPONENTS
-    self.failuredetect.connectMeToComponent(PortNames.DOWN, self.linklayer)
-    self.linklayer.connectMeToComponent(PortNames.UP, self.failuredetect)
+    self.failuredetect.connectMeToComponent(ConnectorTypes.DOWN, self.linklayer)
+    self.linklayer.connectMeToComponent(ConnectorTypes.UP, self.failuredetect)
 
     # Connect the bottom component to the composite component....
-    self.linklayer.connectMeToComponent(PortNames.DOWN, self)
-    self.connectMeToComponent(PortNames.UP, self.linklayer)
+    self.linklayer.connectMeToComponent(ConnectorTypes.DOWN, self)
+    self.connectMeToComponent(ConnectorTypes.UP, self.linklayer)
 
     # First initialize the super, then add your own event handlers...
     super().__init__(componentname, componentid)
@@ -84,7 +84,7 @@ def Main():
   #  for i in range(3):
   #    cc = AdHocNode("Node", i)
   #    nodes.append(cc)
-  #    cc.connectMeToChannel(PortNames.DOWN, ch1)
+  #    cc.connectMeToChannel(ConnectorTypes.DOWN, ch1)
 
   #  registry.printComponents()
 

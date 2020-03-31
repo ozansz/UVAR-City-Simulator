@@ -25,6 +25,7 @@ import networkx as nx
 
 inf = float('inf')
 
+#The following are the common default events for all components.
 class EventTypes(Enum):
   INIT = "init"
   MFRB = "msgfrombottom"
@@ -38,18 +39,18 @@ class MessageDestinationIdentifiers(Enum):
   NETWORKLAYERBROADCAST = -2  # For flooding over multiple-hops means all connected nodes to me over one or more links
 
 # A Dictionary that holds a list for the same key
-class PortList(dict):
+class ConnectorList(dict):
   def __setitem__(self, key, value):
     try:
       self[key]
     except KeyError:
-      super(PortList, self).__setitem__(key, [])
+      super(ConnectorList, self).__setitem__(key, [])
     self[key].append(value)
 
-class PortNames(Enum):
-  DOWN = "PORTDOWN"
-  UP = "PORTUP"
-  PEER = "PORTTOPEER"
+class ConnectorTypes(Enum):
+  DOWN = "DOWN"
+  UP = "UP"
+  PEER = "PEER"
 
 class GenericMessagePayload():
   def __init__(self, messagepayload):
@@ -115,8 +116,8 @@ class ComponentRegistry():
     for itemkey in self.components:
       cmp = self.components[itemkey]
       print(f"I am {cmp.componentname}.{cmp.componentinstancenumber}")
-      for i in cmp.ports:
-        connectedcmp = cmp.ports[i]
+      for i in cmp.connectors:
+        connectedcmp = cmp.connectors[i]
         for p in connectedcmp:
           print(f"\t{i} {p.componentname}.{p.componentinstancenumber}")
 
@@ -149,10 +150,10 @@ class ComponentModel:
     self.componentinstancenumber = componentinstancenumber
     self.num_worker_threads = num_worker_threads
     try:
-      if self.ports:
+      if self.connectors:
         pass
     except AttributeError:
-      self.ports = PortList()
+      self.connectors = ConnectorList()
 
     self.registry = ComponentRegistry()
     self.registry.addComponent(self)
@@ -164,38 +165,38 @@ class ComponentModel:
 
   def connectMeToComponent(self, name, component):
     try:
-      self.ports[name] = component
+      self.connectors[name] = component
     except AttributeError:
-      self.ports = PortList()
-      self.ports[name] = component
+      self.connectors = ConnectorList()
+      self.connectors[name] = component
 
 
   def connectMeToChannel(self, name, channel):
     try:
-      self.ports[name] = channel
+      self.connectors[name] = channel
     except AttributeError:
-      self.ports = PortList()
-      self.ports[name] = channel
-    portnameforchannel = self.componentname + str(self.componentinstancenumber)
-    channel.connectMeToComponent(portnameforchannel, self)
+      self.connectors = ConnectorList()
+      self.connectors[name] = channel
+    connectornameforchannel = self.componentname + str(self.componentinstancenumber)
+    channel.connectMeToComponent(connectornameforchannel, self)
 
   def senddown(self, event: Event):
     try:
-      for p in self.ports[PortNames.DOWN]:
+      for p in self.connectors[ConnectorTypes.DOWN]:
         p.triggerevent(event)
     except:
       pass
 
   def sendup(self, event: Event):
     try:
-      for p in self.ports[PortNames.UP]:
+      for p in self.connectors[ConnectorTypes.UP]:
         p.triggerevent(event)
     except:
       pass
 
-  def sendpeers(self, event: Event):
+  def sendpeer(self, event: Event):
     try:
-      for p in self.ports[PortNames.PEER]:
+      for p in self.connectors[ConnectorTypes.PEER]:
         p.triggerevent(event)
     except:
       pass
@@ -233,8 +234,8 @@ class Topology():
       ch = channeltype(channeltype.__name__, str(k[0]) + "-" + str(k[1]))
       self.channels[k] = ch
       # print(f"Edges: Node {k[0]} is connected to Node {k[1]}")
-      self.nodes[k[0]].connectMeToChannel(PortNames.DOWN, ch)
-      self.nodes[k[1]].connectMeToChannel(PortNames.DOWN, ch)
+      self.nodes[k[0]].connectMeToChannel(ConnectorTypes.DOWN, ch)
+      self.nodes[k[1]].connectMeToChannel(ConnectorTypes.DOWN, ch)
 
   def constructSenderReceiver(self, sendertype, receivertype, channeltype):
 
@@ -250,8 +251,8 @@ class Topology():
     self.nodes["1"] = self.receiver
     self.channels["0-1"] = ch
 
-    self.sender.connectMeToChannel(PortNames.DOWN, ch)
-    self.receiver.connectMeToChannel(PortNames.DOWN, ch)
+    self.sender.connectMeToChannel(ConnectorTypes.DOWN, ch)
+    self.receiver.connectMeToChannel(ConnectorTypes.DOWN, ch)
 
   def allpairsshortestpath(self):
     return dict(nx.all_pairs_shortest_path(self.G))

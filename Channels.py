@@ -3,7 +3,7 @@ import random
 from threading import Thread
 
 from Ahc import Event
-from Ahc import ComponentModel, EventTypes
+from Ahc import ComponentModel, EventTypes, ConnectorList
 from enum import Enum
 
 # TODO: Channel failure models: lossy-link, fair-loss, stubborn links, perfect links (WHAT ELSE?), FIFO perfect
@@ -44,8 +44,8 @@ class Channel(ComponentModel):
   # onDeliver will deliver the message from the channel to the receiver component using messagefromchannel event
   def onDeliverToComponent(self, eventobj: Event):
     callername = eventobj.eventsource.componentinstancenumber
-    for item in self.ports:
-      callees = self.ports[item]
+    for item in self.connectors:
+      callees = self.connectors[item]
       for callee in callees:
         calleename = callee.componentinstancenumber
         # print(f"I am connected to {calleename}. Will check if I have to distribute it to {item}")
@@ -81,8 +81,8 @@ class P2PFIFOPerfectChannel(Channel):
     msg = eventobj.eventcontent
     nexthop = msg.header.nexthop
     callername = eventobj.eventsource.componentinstancenumber
-    for item in self.ports:
-      callees = self.ports[item]
+    for item in self.connectors:
+      callees = self.connectors[item]
       for callee in callees:
         calleename = callee.componentinstancenumber
         # print(f"I am connected to {calleename}. Will check if I have to distribute it to {item}")
@@ -96,13 +96,13 @@ class P2PFIFOPerfectChannel(Channel):
   # Overwriting to limit the number of connected components
   def connectMeToComponent(self, name, component):
     try:
-      self.ports[name] = component
+      self.connectors[name] = component
       # print(f"Number of nodes connected: {len(self.ports)}")
-      if len(self.ports) > 2:
+      if len(self.connectors) > 2:
         raise AHCChannelError("More than two nodes cannot connect to a P2PFIFOChannel")
     except AttributeError:
-      self.ports = PortList()
-      self.ports[name] = component
+      self.connectors = ConnectorList()
+      self.connectors[name] = component
     # except AHCChannelError as e:
     #    print( f"{e}" )
 
