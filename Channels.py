@@ -22,8 +22,8 @@ from enum import Enum
 # The components that will use the channel directly, will have to handle "messagefromchannel" event
 
 class ChannelEventTypes(Enum):
-  PROCESSINCHANNEL = "processinchannel"
-  DELIVERTOCOMPONENT = "delivertocomponent"
+  INCH = "processinchannel"
+  DLVR = "delivertocomponent"
 
 class Channel(ComponentModel):
   def onInit(self, eventobj: Event):
@@ -32,14 +32,14 @@ class Channel(ComponentModel):
   # Overwrite onSendToChannel if you want to do something in the first pipeline stage
   def onMessageFromTop(self, eventobj: Event):
     # channel receives the input message and will process the message by the process event in the next pipeline stage
-    myevent = Event(self, ChannelEventTypes.PROCESSINCHANNEL, eventobj.eventcontent)
+    myevent = Event(eventobj.eventsource, ChannelEventTypes.INCH, eventobj.eventcontent)
     self.channelqueue.put_nowait(myevent)
 
   # Overwrite onProcessInChannel if you want to do something in interim pipeline stage
   def onProcessInChannel(self, eventobj: Event):
     # Add delay, drop, change order whatever....
     # Finally put the message in outputqueue with event deliver
-    myevent = Event(self, ChannelEventTypes.DELIVERTOCOMPONENT, eventobj.eventcontent)
+    myevent = Event(eventobj.eventsource, ChannelEventTypes.DLVR, eventobj.eventcontent)
     self.outputqueue.put_nowait(myevent)
 
   # Overwrite onDeliverToComponent if you want to do something in the last pipeline stage
@@ -54,25 +54,24 @@ class Channel(ComponentModel):
         if calleename == callername:
           pass
         else:
-          myevent = Event(self, EventTypes.MFRB, eventobj.eventcontent)
+          myevent = Event(eventobj.eventsource, EventTypes.MFRB, eventobj.eventcontent)
           callee.triggerevent(myevent)
 
   def __init__(self, componentname, componentinstancenumber):
     super().__init__(componentname, componentinstancenumber)
     self.outputqueue = queue.Queue()
     self.channelqueue = queue.Queue()
-    self.eventhandlers[EventTypes.MFRT] = self.onMessageFromTop
-    self.eventhandlers[ChannelEventTypes.PROCESSINCHANNEL] = self.onProcessInChannel
-    self.eventhandlers[ChannelEventTypes.DELIVERTOCOMPONENT] = self.onDeliverToComponent
+    self.eventhandlers[ChannelEventTypes.INCH] = self.onProcessInChannel
+    self.eventhandlers[ChannelEventTypes.DLVR] = self.onDeliverToComponent
 
     for i in range(self.num_worker_threads):
       # note that the input queue is handled by the super class...
-      tout = Thread(target=self.queuehandler, args=[self.outputqueue])
-      tout.daemon = True
-      tch = Thread(target=self.queuehandler, args=[self.channelqueue])
-      tch.daemon = True
-      tch.start()
-      tout.start()
+      t = Thread(target=self.queuehandler, args=[self.channelqueue])
+      t1 = Thread(target=self.queuehandler, args=[self.outputqueue])
+      t.daemon = True
+      t1.daemon = True
+      t.start()
+      t1.start()
 
 class AHCChannelError(Exception):
   pass
@@ -91,7 +90,7 @@ class P2PFIFOPerfectChannel(Channel):
         if calleename == callername:
           pass
         else:
-          myevent = Event(self, EventTypes.MFRB, eventobj.eventcontent)
+          myevent = Event(eventobj.eventsource, EventTypes.MFRB, eventobj.eventcontent)
           callee.triggerevent(myevent)
 
 
@@ -114,7 +113,7 @@ class P2PFIFOFairLossChannel(P2PFIFOPerfectChannel):
 
   def onProcessInChannel(self, eventobj: Event):
     if random.random() < self.prob:
-      myevent = Event(self, ChannelEventTypes.DELIVERTOCOMPONENT, eventobj.eventcontent)
+      myevent = Event(eventobj.eventsource, ChannelEventTypes.DLVR, eventobj.eventcontent)
       self.outputqueue.put_nowait(myevent)
     if random.random() < self.duplicationprobability:
       self.channelqueue.put_nowait(eventobj)

@@ -234,24 +234,25 @@ class Topology():
     for k in edges:
       ch = channeltype(channeltype.__name__, str(k[0]) + "-" + str(k[1]))
       self.channels[k] = ch
-      # print(f"Edges: Node {k[0]} is connected to Node {k[1]}")
       self.nodes[k[0]].connectMeToChannel(ConnectorTypes.DOWN, ch)
       self.nodes[k[1]].connectMeToChannel(ConnectorTypes.DOWN, ch)
 
-  def constructSenderReceiver(self, sendertype, receivertype, channeltype):
+  def constructSingleNode(self, nodetype, instancenumber):
+    self.singlenode = nodetype(nodetype.__name__, instancenumber)
+    self.G = nx.Graph()
+    self.G.add_nodes_from([0])
+    self.nodes[0] = self.singlenode
 
+  def constructSenderReceiver(self, sendertype, receivertype, channeltype):
     self.sender = sendertype(sendertype.__name__, 0)
     self.receiver = receivertype(receivertype.__name__, 1)
     ch = channeltype(channeltype.__name__, "0-1")
-
     self.G = nx.Graph()
     self.G.add_nodes_from([0, 1])
     self.G.add_edges_from([(0, 1)])
-
-    self.nodes["0"] = self.sender
-    self.nodes["1"] = self.receiver
-    self.channels["0-1"] = ch
-
+    self.nodes[self.sender.componentinstancenumber] = self.sender
+    self.nodes[self.sender.componentinstancenumber] = self.receiver
+    self.channels[ch.componentinstancenumber] = ch
     self.sender.connectMeToChannel(ConnectorTypes.DOWN, ch)
     self.receiver.connectMeToChannel(ConnectorTypes.DOWN, ch)
 

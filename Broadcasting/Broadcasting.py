@@ -5,6 +5,9 @@ from enum import Enum
 from Ahc import ComponentModel, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology, \
   MessageDestinationIdentifiers, EventTypes
 
+class BroadcastingEventTypes(Enum):
+  BROADCAST = "broadcast"
+
 # define your own message types
 class BroadcastingMessageTypes(Enum):
   SIMPLEFLOOD = "SIMPLEFLOOD"
@@ -19,6 +22,7 @@ class BroadcastingMessagePayload(GenericMessagePayload):
 
 class ControlledFlooding(ComponentModel):
   def onInit(self, eventobj: Event):
+    self.uniquebroadcastidentifier = 1
     self.broadcastdb = []
     if self.componentinstancenumber == 0:
       self.sendself(Event(self, EventTypes.MFRT, None))
@@ -39,9 +43,15 @@ class ControlledFlooding(ComponentModel):
     Topology().nodecolors[self.componentinstancenumber] = 'r'
     Topology().plot()
 
+  def onBroadcast(self, eventobj: Event):
+    self.updateTopology()
+    self.uniquebroadcastidentifier = self.uniquebroadcastidentifier + 1
+    self.senddownbroadcast(eventobj, self.componentinstancenumber, self.uniquebroadcastidentifier)
+
   def onMessageFromTop(self, eventobj: Event):
     self.updateTopology()
-    self.senddownbroadcast(eventobj, self.componentinstancenumber, 1)
+    evt = Event(self, BroadcastingEventTypes.BROADCAST, eventobj.eventcontent)
+    self.sendself(evt)
 
   def onMessageFromBottom(self, eventobj: Event):
     msg = eventobj.eventcontent
@@ -60,6 +70,7 @@ class ControlledFlooding(ComponentModel):
           self.senddownbroadcast(eventobj, eventobj.eventcontent.header.messagefrom,
                                  eventobj.eventcontent.header.sequencenumber)
 
-#  def __init__(self, componentname, componentinstancenumber):
-#    super().__init__(componentname, componentinstancenumber)
-#     #add events here
+  def __init__(self, componentname, componentinstancenumber):
+    super().__init__(componentname, componentinstancenumber)
+    self.eventhandlers[BroadcastingEventTypes.BROADCAST] = self.onBroadcast
+     #add events here
