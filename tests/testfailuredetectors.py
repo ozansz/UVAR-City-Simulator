@@ -3,7 +3,7 @@ import networkx as nx
 
 from Ahc import ComponentModel, Event, ConnectorTypes, Topology, ComponentRegistry, EventTypes
 from Channels import P2PFIFOPerfectChannel
-from FailureDetectors import FailureDetector
+from FailureDetectors.FailureDetectors import FailureDetector
 
 registry = ComponentRegistry()
 

@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 from Ahc import ComponentRegistry
-from Ahc import ComponentModel, Event, ConnectorTypes, Topology, MessageDestinationIdentifiers
+from Ahc import ComponentModel, Event, ConnectorTypes, Topology
 from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage, EventTypes
 from Channels import P2PFIFOPerfectChannel
-from AllSeeingEyeNetworkLayer import AllSeingEyeNetworkLayer
-from GenericLinkLayer import LinkLayer
+from NetworkLayers.AllSeeingEyeNetworkLayer import AllSeingEyeNetworkLayer
+from LinkLayers.GenericLinkLayer import LinkLayer
 
 registry = ComponentRegistry()
 

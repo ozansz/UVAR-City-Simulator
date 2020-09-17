@@ -38,7 +38,7 @@ class LinkLayer(ComponentModel):
     hdr = msg.header
     payload = msg.payload
     if hdr.messageto == self.componentinstancenumber or hdr.messageto == MessageDestinationIdentifiers.LINKLAYERBROADCAST :
-      self.sendup(Event(self, EventTypes.MFRB, payload)) #doing decapsulation by just sending the payload
+      self.sendup(Event(self, EventTypes.MFRB, payload, eventobj.fromchannel)) #doing decapsulation by just sending the payload
     else:
       print(f"I am {self.componentinstancenumber} and dropping the {hdr.messagetype} message to {hdr.messageto}")
 

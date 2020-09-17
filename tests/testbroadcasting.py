@@ -2,12 +2,10 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import random
 from Ahc import ComponentRegistry
-from Ahc import ComponentModel, Event, ConnectorTypes, Topology, MessageDestinationIdentifiers, EventTypes
-from Ahc import GenericMessagePayload, GenericMessageHeader, GenericMessage
-from Channels import P2PFIFOPerfectChannel, FIFOBroadcastPerfectChannel,P2PFIFOFairLossChannel
+from Ahc import ComponentModel, Event, ConnectorTypes, Topology, EventTypes
+from Channels import P2PFIFOFairLossChannel
 from Broadcasting.Broadcasting import ControlledFlooding
-from GenericLinkLayer import LinkLayer
-from FailureDetectors import FailureDetector
+from LinkLayers.GenericLinkLayer import LinkLayer
 
 registry = ComponentRegistry()
 

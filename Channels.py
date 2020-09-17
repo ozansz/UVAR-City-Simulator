@@ -26,7 +26,9 @@ class ChannelEventTypes(Enum):
   DLVR = "delivertocomponent"
 
 class Channel(ComponentModel):
+  terminated = False
   def onInit(self, eventobj: Event):
+
     pass
 
   # Overwrite onSendToChannel if you want to do something in the first pipeline stage
@@ -54,7 +56,7 @@ class Channel(ComponentModel):
         if calleename == callername:
           pass
         else:
-          myevent = Event(eventobj.eventsource, EventTypes.MFRB, eventobj.eventcontent)
+          myevent = Event(eventobj.eventsource, EventTypes.MFRB, eventobj.eventcontent, self.componentinstancenumber)
           callee.triggerevent(myevent)
 
   def __init__(self, componentname, componentinstancenumber):
@@ -90,7 +92,7 @@ class P2PFIFOPerfectChannel(Channel):
         if calleename == callername:
           pass
         else:
-          myevent = Event(eventobj.eventsource, EventTypes.MFRB, eventobj.eventcontent)
+          myevent = Event(eventobj.eventsource, EventTypes.MFRB, eventobj.eventcontent, self.componentinstancenumber)
           callee.triggerevent(myevent)
 
 

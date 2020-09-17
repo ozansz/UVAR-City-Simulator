@@ -71,11 +71,12 @@ class GenericMessage:
     self.uniqueid = str(header.messagefrom) + "-" + str(header.sequencenumber)
 
 class Event:
-  def __init__(self, eventsource, event, eventcontent):
+  def __init__(self, eventsource, event, eventcontent, fromchannel=None):
     self.eventsource = eventsource
     self.event = event
     self.time = datetime.datetime.now()
     self.eventcontent = eventcontent
+    self.fromchannel = fromchannel
 
 def singleton(cls):
   instance = [None]
@@ -124,6 +125,8 @@ class ComponentRegistry():
 registry = ComponentRegistry()
 
 class ComponentModel:
+
+  terminated = False
 
   def onInit(self, eventobj: Event):
     #print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
@@ -181,6 +184,9 @@ class ComponentModel:
     connectornameforchannel = self.componentname + str(self.componentinstancenumber)
     channel.connectMeToComponent(connectornameforchannel, self)
 
+  def terminate(self):
+    self.terminated = True
+
   def senddown(self, event: Event):
     try:
       for p in self.connectors[ConnectorTypes.DOWN]:
@@ -207,7 +213,7 @@ class ComponentModel:
     self.triggerevent(event)
 
   def queuehandler(self, myqueue):
-    while True:
+    while self.terminated==False:
       workitem = myqueue.get()
       if workitem.event in self.eventhandlers:
         # print(f"OUTPUT I am {self.eventhandlers[workitem.event]}: {workitem.caller.componentname} called me at {workitem.time}" )
@@ -307,8 +313,14 @@ class Topology():
   def getNeighbors(self, nodeId):
     return sorted([neighbor for neighbor in self.G.neighbors(nodeId)])
 
+  # Returns the list of neighbors of a node
+  def getNeighborCount(self, nodeId):
+    #return len([neighbor for neighbor in self.G.neighbors(nodeId)])
+    return self.G.degree[nodeId]
+
   def plot(self):
     self.lock.acquire()
     nx.draw(self.G, self.nodepos, node_color=self.nodecolors, with_labels=True, font_weight='bold')
     plt.draw()
     self.lock.release()
+
