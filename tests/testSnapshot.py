@@ -39,7 +39,9 @@ def Main():
   #G.add_edges_from([(1, 2)])
   #nx.draw(G, with_labels=True, font_weight='bold')
   #plt.draw()
-  G = nx.random_geometric_graph(5, 0.95)
+  #G = nx.random_geometric_graph(5, 0.95)
+
+  G = nx.gnp_random_graph(5,0.95,directed=True)
   topo = Topology()
   topo.constructFromGraph(G, AdHocNode, P2PFIFOPerfectChannel)
 #  for ch in topo.channels:
