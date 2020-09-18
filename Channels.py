@@ -26,7 +26,7 @@ class ChannelEventTypes(Enum):
   DLVR = "delivertocomponent"
 
 class Channel(ComponentModel):
-  terminated = False
+
   def onInit(self, eventobj: Event):
 
     pass

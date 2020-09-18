@@ -41,7 +41,7 @@ def Main():
   #plt.draw()
   #G = nx.random_geometric_graph(5, 0.95)
 
-  G = nx.gnp_random_graph(5,0.95,directed=True)
+  G = nx.gnp_random_graph(10,0.95,directed=True)
   topo = Topology()
   topo.constructFromGraph(G, AdHocNode, P2PFIFOPerfectChannel)
 #  for ch in topo.channels:
@@ -55,9 +55,7 @@ def Main():
   topo.plot()
 
   print(topo.nodecolors)
-  time.sleep(1)
-
-  topo.nodes[0].chandylamportsnapshot.sendself(Event(topo.nodes[0].chandylamportsnapshot, SnapshotsEventTypes.TAKESNAPSHOT, None))
+#  topo.nodes[0].chandylamportsnapshot.sendself(Event(topo.nodes[0].chandylamportsnapshot, SnapshotsEventTypes.TAKESNAPSHOT, None))
   plt.show()  # while (True): pass
 
 
