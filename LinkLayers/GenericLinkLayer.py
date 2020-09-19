@@ -1,52 +1,49 @@
-from Ahc import ComponentModel, MessageDestinationIdentifiers, Event, GenericMessageHeader, GenericMessagePayload, \
-    GenericMessage, EventTypes
 from enum import Enum
 
+from Ahc import ComponentModel, MessageDestinationIdentifiers, Event, GenericMessageHeader, GenericMessagePayload, \
+  GenericMessage, EventTypes
 
 # define your own message types
 class LinkLayerMessageTypes(Enum):
-    LINKMSG = "LINKMSG"
-
+  LINKMSG = "LINKMSG"
 
 # define your own message header structure
 class LinkLayerMessageHeader(GenericMessageHeader):
-    pass
-
+  pass
 
 # define your own message payload structure
 class LinkLayerMessagePayload(GenericMessagePayload):
-    pass
-
+  pass
 
 class LinkLayer(ComponentModel):
-    def onInit(self, eventobj: Event):
-        # print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
-        pass
+  def on_init(self, eventobj: Event):
+    # print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
+    pass
 
-    def onMessageFromTop(self, eventobj: Event):
-        abovehdr = eventobj.eventcontent.header
-        if abovehdr == MessageDestinationIdentifiers.NETWORKLAYERBROADCAST:
-            hdr = LinkLayerMessageHeader(LinkLayerMessageTypes.LINKMSG, self.componentinstancenumber,
-                                         MessageDestinationIdentifiers.LINKLAYERBROADCAST)
-        else:
-            hdr = LinkLayerMessageHeader(LinkLayerMessageTypes.LINKMSG, self.componentinstancenumber,
-                                         abovehdr.nexthop)
+  def on_message_from_top(self, eventobj: Event):
+    abovehdr = eventobj.eventcontent.header
+    if abovehdr == MessageDestinationIdentifiers.NETWORKLAYERBROADCAST:
+      hdr = LinkLayerMessageHeader(LinkLayerMessageTypes.LINKMSG, self.componentinstancenumber,
+                                   MessageDestinationIdentifiers.LINKLAYERBROADCAST)
+    else:
+      hdr = LinkLayerMessageHeader(LinkLayerMessageTypes.LINKMSG, self.componentinstancenumber,
+                                   abovehdr.nexthop)
 
-        payload = eventobj.eventcontent
-        msg = GenericMessage(hdr, payload)
-        self.senddown(Event(self, EventTypes.MFRT, msg))
+    payload = eventobj.eventcontent
+    msg = GenericMessage(hdr, payload)
+    self.send_down(Event(self, EventTypes.MFRT, msg))
 
-    def onMessageFromBottom(self, eventobj: Event):
-        msg = eventobj.eventcontent
-        hdr = msg.header
-        payload = msg.payload
-        if hdr.messageto == self.componentinstancenumber or hdr.messageto == MessageDestinationIdentifiers.LINKLAYERBROADCAST:
-            self.sendup(Event(self, EventTypes.MFRB, payload,
-                              eventobj.fromchannel))  # doing decapsulation by just sending the payload
-        else:
-            #      print(f"I am {self.componentinstancenumber} and dropping the {hdr.messagetype} message to {hdr.messageto}")
-            # Physical layer is a broadcast medium, and hence will accept all messages. The link layer will drop those messages that are not for me
-            pass
+  def on_message_from_bottom(self, eventobj: Event):
+    msg = eventobj.eventcontent
+    hdr = msg.header
+    payload = msg.payload
+    if hdr.messageto == self.componentinstancenumber or hdr.messageto == MessageDestinationIdentifiers.LINKLAYERBROADCAST:
+      self.send_up(Event(self, EventTypes.MFRB, payload,
+                         eventobj.fromchannel))  # doing decapsulation by just sending the payload
+    else:
+      #      print(f"I am {self.componentinstancenumber} and dropping the {hdr.messagetype} message to {hdr.messageto}")
+      # Physical layer is a broadcast medium, and hence will accept all messages. The link layer will drop those messages that are not for me
+      pass
 
 #  def __init__(self, componentname, componentinstancenumber):
 #   super().__init__(componentname, componentinstancenumber)

@@ -9,32 +9,32 @@ registry = ComponentRegistry()
 
 class LinkLayerComponent(ComponentModel):
 
-  def onInit(self, eventobj: Event):
+  def on_init(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
-  def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, EventTypes.MFRT, eventobj.eventcontent))
+  def on_message_from_top(self, eventobj: Event):
+    self.send_down(Event(self, EventTypes.MFRT, eventobj.eventcontent))
 
-  def onMessageFromBottom(self, eventobj: Event):
-    self.sendup(Event(self, EventTypes.MFRB, eventobj.eventcontent))
+  def on_message_from_bottom(self, eventobj: Event):
+    self.send_up(Event(self, EventTypes.MFRB, eventobj.eventcontent))
 
-  def onTimerExpired(self, eventobj: Event):
+  def on_timer_expired(self, eventobj: Event):
     pass
 
   def __init__(self, componentname, componentinstancenumber):
     super().__init__(componentname, componentinstancenumber)
-    self.eventhandlers["timerexpired"] = self.onTimerExpired
+    self.eventhandlers["timerexpired"] = self.on_timer_expired
 
 class AdHocNode(ComponentModel):
 
-  def onInit(self, eventobj: Event):
+  def on_init(self, eventobj: Event):
     print(f"Initializing {self.componentname}.{self.componentinstancenumber}")
 
-  def onMessageFromTop(self, eventobj: Event):
-    self.senddown(Event(self, EventTypes.MFRT, eventobj.eventcontent))
+  def on_message_from_top(self, eventobj: Event):
+    self.send_down(Event(self, EventTypes.MFRT, eventobj.eventcontent))
 
-  def onMessageFromBottom(self, eventobj: Event):
-    self.sendup(Event(self, EventTypes.MFRB, eventobj.eventcontent))
+  def on_message_from_bottom(self, eventobj: Event):
+    self.send_up(Event(self, EventTypes.MFRB, eventobj.eventcontent))
 
   def __init__(self, componentname, componentid):
     # SUBCOMPONENTS
@@ -42,12 +42,12 @@ class AdHocNode(ComponentModel):
     self.failuredetect = FailureDetector("FailureDetector", componentid)
 
     # CONNECTIONS AMONG SUBCOMPONENTS
-    self.failuredetect.connectMeToComponent(ConnectorTypes.DOWN, self.linklayer)
-    self.linklayer.connectMeToComponent(ConnectorTypes.UP, self.failuredetect)
+    self.failuredetect.connect_me_to_component(ConnectorTypes.DOWN, self.linklayer)
+    self.linklayer.connect_me_to_component(ConnectorTypes.UP, self.failuredetect)
 
     # Connect the bottom component to the composite component....
-    self.linklayer.connectMeToComponent(ConnectorTypes.DOWN, self)
-    self.connectMeToComponent(ConnectorTypes.UP, self.linklayer)
+    self.linklayer.connect_me_to_component(ConnectorTypes.DOWN, self)
+    self.connect_me_to_component(ConnectorTypes.UP, self.linklayer)
 
     # First initialize the super, then add your own event handlers...
     super().__init__(componentname, componentid)
@@ -57,7 +57,7 @@ class MessageContent:
     self.value = value
     self.mynodeid = mynodeid
 
-def Main():
+def main():
   # G = nx.Graph()
   # G.add_nodes_from([1, 2, 3, 4])
   # G.add_edges_from([(1, 2), (2, 3), (3,4)])
@@ -68,16 +68,15 @@ def Main():
   plt.draw()
 
   topo = Topology()
-  topo.constructFromGraph(G, AdHocNode, P2PFIFOPerfectChannel)
-  topo.computeForwardingTable()
-  topo.printForwardingTable()
+  topo.construct_from_graph(G, AdHocNode, P2PFIFOPerfectChannel)
+  topo.compute_forwarding_table()
+  topo.print_forwarding_table()
 
-  print(topo.getNextHop(0,1))
+  print(topo.get_next_hop(0, 1))
 
-  print(topo.getNeighbors(0))
+  print(topo.get_neighbors(0))
 
-  #topo.start()
-
+  # topo.start()
 
   #  nodes = []
   #  ch1 = FIFOBroadcastChannel("FIFOBroadcastChannel", 1)
@@ -92,4 +91,4 @@ def Main():
   # while (True): pass   #plt.show() handles this
 
 if __name__ == "__main__":
-  Main()
+  main()

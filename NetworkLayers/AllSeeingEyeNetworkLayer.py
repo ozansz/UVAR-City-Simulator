@@ -1,6 +1,7 @@
-
-from Ahc import ComponentModel, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology, MessageDestinationIdentifiers, EventTypes
 from enum import Enum
+
+from Ahc import ComponentModel, Event, GenericMessageHeader, GenericMessagePayload, GenericMessage, Topology, \
+  MessageDestinationIdentifiers, EventTypes
 
 # define your own message types
 class NetworkLayerMessageTypes(Enum):
@@ -16,36 +17,38 @@ class NetworkLayerMessagePayload(GenericMessagePayload):
 
 class AllSeingEyeNetworkLayer(ComponentModel):
 
-  def onMessageFromTop(self, eventobj: Event):
+  def on_message_from_top(self, eventobj: Event):
     # Encapsulate the SDU in network layer PDU
     applmsg = eventobj.eventcontent
     destination = applmsg.header.messageto
-    nexthop = Topology().getNextHop(self.componentinstancenumber, destination)
+    nexthop = Topology().get_next_hop(self.componentinstancenumber, destination)
     if nexthop != float('inf'):
       print(f"{self.componentinstancenumber} will SEND a message to {destination} over {nexthop}")
-      hdr = NetworkLayerMessageHeader(NetworkLayerMessageTypes.NETMSG, self.componentinstancenumber, destination, nexthop )
+      hdr = NetworkLayerMessageHeader(NetworkLayerMessageTypes.NETMSG, self.componentinstancenumber, destination,
+                                      nexthop)
       payload = eventobj.eventcontent
       msg = GenericMessage(hdr, payload)
-      self.senddown(Event(self, EventTypes.MFRT, msg))
+      self.send_down(Event(self, EventTypes.MFRT, msg))
     else:
       print(f"NO PATH: {self.componentinstancenumber} will NOTSEND a message to {destination} over {nexthop}")
 
-  def onMessageFromBottom(self, eventobj: Event):
+  def on_message_from_bottom(self, eventobj: Event):
     msg = eventobj.eventcontent
     hdr = msg.header
     payload = msg.payload
 
     if hdr.messageto == self.componentinstancenumber or hdr.messageto == MessageDestinationIdentifiers.NETWORKLAYERBROADCAST:  # Add if broadcast....
-      self.sendup(Event(self, EventTypes.MFRB, payload))
+      self.send_up(Event(self, EventTypes.MFRB, payload))
       print(f"I received a message to {hdr.messageto} and I am {self.componentinstancenumber}")
     else:
       destination = hdr.messageto
-      nexthop = Topology().getNextHop(self.componentinstancenumber, destination)
-      if nexthop != float('inf') :
-        newhdr = NetworkLayerMessageHeader(NetworkLayerMessageTypes.NETMSG, self.componentinstancenumber, destination, nexthop)
+      nexthop = Topology().get_next_hop(self.componentinstancenumber, destination)
+      if nexthop != float('inf'):
+        newhdr = NetworkLayerMessageHeader(NetworkLayerMessageTypes.NETMSG, self.componentinstancenumber, destination,
+                                           nexthop)
         newpayload = eventobj.eventcontent.payload
         msg = GenericMessage(newhdr, newpayload)
-        self.senddown(Event(self, EventTypes.MFRT, msg))
+        self.send_down(Event(self, EventTypes.MFRT, msg))
         print(f"{self.componentinstancenumber} will FORWARD a message to {destination} over {nexthop}")
       else:
         print(f"NO PATH {self.componentinstancenumber} will NOT FORWARD a message to {destination} over {nexthop}")
