@@ -304,13 +304,21 @@ class Topology:
   def get_neighbors(self, nodeId):
     return sorted([neighbor for neighbor in self.G.neighbors(nodeId)])
 
+  def get_predecessors(self, nodeId):
+    return sorted([neighbor for neighbor in self.G.predecessors(nodeId)])
+
+  def get_successors(self, nodeId):
+    return sorted([neighbor for neighbor in self.G.neighbors(nodeId)])
+
+
   # Returns the list of neighbors of a node
   def get_neighbor_count(self, nodeId):
     # return len([neighbor for neighbor in self.G.neighbors(nodeId)])
     return self.G.degree[nodeId]
 
   def plot(self):
-    # self.lock.acquire()
+    #self.lock.acquire()
     nx.draw(self.G, self.nodepos, node_color=self.nodecolors, with_labels=True, font_weight='bold')
     plt.draw()
-    # self.lock.release()
+    print(self.nodecolors)
+    #self.lock.release()

@@ -38,19 +38,22 @@ class SnapshotsMessagePayload(GenericMessagePayload):
 class ChandyLamportSnapshot(ComponentModel):
 
   def update_topology(self):
+#    Topology().lock.acquire()
     Topology().nodecolors[self.componentinstancenumber] = 'r'
     Topology().plot()
+#    Topology().lock.release()
 
   # Default initiator for all processes
   def on_init(self, eventobj: Event):
     self.uniquebroadcastidentifier = 0
     self.recorded = False
     self.marker = {}
+    self.my_predecessors = Topology().get_predecessors(self.componentinstancenumber)
     self.myneighbors = Topology().get_neighbors(self.componentinstancenumber)
-    for i in self.myneighbors:
+    for i in self.my_predecessors:
       ch = str(i) + "-" + str(self.componentinstancenumber)
       self.marker[ch] = False
-    print(f"\nI am {self.componentinstancenumber}, My markers={self.marker}")
+    #print(f"\nI am {self.componentinstancenumber}, My markers={self.marker}")
     # The following piece of code is for debugging: Node 0 initiates the snapshot algorithm
     if self.componentinstancenumber == 0:
       time.sleep(2)
@@ -76,23 +79,23 @@ class ChandyLamportSnapshot(ComponentModel):
       hdr = SnapshotsMessageHeader(SnapshotsMessageTypes.MARKER, whosends, destination, nexthop,
                                    self.uniquebroadcastidentifier)
       self.uniquebroadcastidentifier = self.uniquebroadcastidentifier + 1
-      print(f"\n{self.componentinstancenumber} will send {hdr.messageto} a {hdr.messagetype} message")
+      #print(f"\n{self.componentinstancenumber} will send {hdr.messageto} a {hdr.messagetype} message")
       payload = applmsg
       broadcastmessage = GenericMessage(hdr, payload)
       self.send_down(Event(self, EventTypes.MFRT, broadcastmessage))
 
   def take_local_snapshot(self):
     if not self.recorded:
+      self.update_topology()
       self.recorded = True
       # Take local snapshot
       print(f"\n{self.componentinstancenumber} TOOK THE SNAPHOT")
       # Send marker message from each outgoing channels
       self.uniquebroadcastidentifier = self.uniquebroadcastidentifier + 1
       eventobj = Event(self, SnapshotsEventTypes.TAKESNAPSHOT, None)
-      time.sleep(1)
+      #time.sleep(1)
       self.send_down_onebyone(eventobj, self.componentinstancenumber)
-
-  #            self.senddownbroadcast(eventobj, self.componentinstancenumber)
+      #self.send_down_broadcast(eventobj, self.componentinstancenumber)
 
   # TakeSnapShot initites the snaphot algorithm, the process who will start the whole procedure will generate TAKESNAPSHOT event
   def on_take_snapshot(self, eventobj: Event):
@@ -116,8 +119,7 @@ class ChandyLamportSnapshot(ComponentModel):
         res = all(self.marker.values())  # Test Boolean Value of Dictionary
         if res:
           print(f"{self.componentinstancenumber} TERMINATED")
-          self.update_topology()
-          self.terminate()
+          #self.terminate()
           # terminate
       else:
         if self.recorded == True and self.marker[ch] == False:
