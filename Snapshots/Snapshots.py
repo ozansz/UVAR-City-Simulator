@@ -66,17 +66,15 @@ class ChandyLamportSnapshot(ComponentModel):
         applmsg = eventobj.eventcontent
         destination = MessageDestinationIdentifiers.NETWORKLAYERBROADCAST
         nexthop = MessageDestinationIdentifiers.LINKLAYERBROADCAST
-
         hdr = SnapshotsMessageHeader(SnapshotsMessageTypes.MARKER, whosends, destination, nexthop,
                                      self.uniquebroadcastidentifier)
         self.uniquebroadcastidentifier = self.uniquebroadcastidentifier + 1
-        print(f"\n{self.componentinstancenumber} will broadcast{hdr.messagetype} ")
+        print(f"\n{self.componentinstancenumber} will broadcast {hdr.messagetype} ")
         payload = applmsg
         broadcastmessage = GenericMessage(hdr, payload)
         self.senddown(Event(self, EventTypes.MFRT, broadcastmessage))
 
     def senddownonebyone(self, eventobj: Event, whosends):
-
         for i in self.myneighbors:
             applmsg = eventobj.eventcontent
             destination = i
@@ -89,22 +87,23 @@ class ChandyLamportSnapshot(ComponentModel):
             broadcastmessage = GenericMessage(hdr, payload)
             self.senddown(Event(self, EventTypes.MFRT, broadcastmessage))
 
-    def takeSnapshot(self):
-        if self.recorded == False:
+    def takeLocalSnapshot(self):
+        if not self.recorded:
             self.recorded = True
-            # Send marker message from each outgoing channels
             # Take local snapshot
             print(f"\n{self.componentinstancenumber} TOOK THE SNAPHOT")
+            # Send marker message from each outgoing channels
             self.uniquebroadcastidentifier = self.uniquebroadcastidentifier + 1
             eventobj = Event(self, SnapshotsEventTypes.TAKESNAPSHOT, None)
             time.sleep(1)
             self.senddownonebyone(eventobj, self.componentinstancenumber)
-#            self.senddownbroadcast(eventobj, self.componentinstancenumber)
+
+    #            self.senddownbroadcast(eventobj, self.componentinstancenumber)
 
     # TakeSnapShot initites the snaphot algorithm, the process who will start the whole procedure will generate TAKESNAPSHOT event
     def onTakeSnapshot(self, eventobj: Event):
         print(f"I WILL START SNAPHOT: My id={self.componentname}:{self.componentinstancenumber}")
-        self.takeSnapshot()
+        self.takeLocalSnapshot()
 
     def onMessageFromTop(self, eventobj: Event):
         pass
@@ -118,11 +117,11 @@ class ChandyLamportSnapshot(ComponentModel):
             if hdr.messagetype == SnapshotsMessageTypes.MARKER:
                 print(
                     f"{self.componentname}:{self.componentinstancenumber} The message comes from {eventobj.fromchannel}")
-                self.takeSnapshot()
+                self.takeLocalSnapshot()
                 self.marker[ch] = True
                 print(f"I am {self.componentinstancenumber} and my markers={self.marker}")
                 res = all(self.marker.values())  # Test Boolean Value of Dictionary
-                if res == True:
+                if res:
                     print(f"{self.componentinstancenumber} TERMINATED")
                     self.updateTopology()
                     self.terminate()

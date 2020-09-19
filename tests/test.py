@@ -81,7 +81,7 @@ class ApplicationLayerComponent(ComponentModel):
     super().__init__(componentname, componentinstancenumber)
     self.eventhandlers["propose"] = self.onPropose
     self.eventhandlers["agree"] = self.onAgree
-    self.eventhandlers["timerexpired"] = self.onAgree
+    self.eventhandlers["timerexpired"] = self.onTimerExpired
 
 class AdHocNode(ComponentModel):
 
