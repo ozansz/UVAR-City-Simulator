@@ -22,12 +22,14 @@ class LinkLayer(ComponentModel):
 
   def on_message_from_top(self, eventobj: Event):
     abovehdr = eventobj.eventcontent.header
-    if abovehdr == MessageDestinationIdentifiers.NETWORKLAYERBROADCAST:
+    if abovehdr.messageto == MessageDestinationIdentifiers.NETWORKLAYERBROADCAST:
       hdr = LinkLayerMessageHeader(LinkLayerMessageTypes.LINKMSG, self.componentinstancenumber,
-                                   MessageDestinationIdentifiers.LINKLAYERBROADCAST)
+                                   MessageDestinationIdentifiers.LINKLAYERBROADCAST,nexthop=MessageDestinationIdentifiers.LINKLAYERBROADCAST)
     else:
+      #if we do not broadcast, use nexthop to determine interfaceid and set hdr.interfaceid
+      myinterfaceid = str(self.componentinstancenumber) + "-" + str(abovehdr.nexthop)
       hdr = LinkLayerMessageHeader(LinkLayerMessageTypes.LINKMSG, self.componentinstancenumber,
-                                   abovehdr.nexthop)
+                                   abovehdr.nexthop, nexthop=abovehdr.nexthop, interfaceid=myinterfaceid)
 
     payload = eventobj.eventcontent
     msg = GenericMessage(hdr, payload)

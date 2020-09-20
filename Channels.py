@@ -3,7 +3,7 @@ import random
 from enum import Enum
 from threading import Thread
 
-from Ahc import ComponentModel, EventTypes, ConnectorList
+from Ahc import ComponentModel, EventTypes, ConnectorList, MessageDestinationIdentifiers
 from Ahc import Event
 
 # TODO: Channel failure models: lossy-link, fair-loss, stubborn links, perfect links (WHAT ELSE?), FIFO perfect
@@ -80,6 +80,20 @@ class AHCChannelError(Exception):
 
 class P2PFIFOPerfectChannel(Channel):
 
+  # Overwrite onSendToChannel
+  # Channels are broadcast, that is why we have to check channel id's using hdr.interfaceid for P2P
+  def on_message_from_top(self, eventobj: Event):
+    # if channelid != hdr.interfaceif then drop (should not be on this channel)
+    hdr = eventobj.eventcontent.header
+    if hdr.nexthop != MessageDestinationIdentifiers.LINKLAYERBROADCAST:
+      if hdr.interfaceid == self.componentinstancenumber:
+        #print(f"Will forward message since {hdr.interfaceid} and {self.componentinstancenumber}")
+        myevent = Event(eventobj.eventsource, ChannelEventTypes.INCH, eventobj.eventcontent)
+        self.channelqueue.put_nowait(myevent)
+      else:
+        #print(f"Will drop message since {hdr.interfaceid} and {self.componentinstancenumber}")
+        pass
+
   def on_deliver_to_component(self, eventobj: Event):
     msg = eventobj.eventcontent
     callername = eventobj.eventsource.componentinstancenumber
@@ -110,6 +124,21 @@ class P2PFIFOPerfectChannel(Channel):
 class P2PFIFOFairLossChannel(P2PFIFOPerfectChannel):
   prob = 1
   duplicationprobability = 0
+  # Overwrite onSendToChannel
+  # Channels are broadcast, that is why we have to check channel id's using hdr.interfaceid for P2P
+
+  def on_message_from_top(self, eventobj: Event):
+    # if channelid != hdr.interfaceif then drop (should not be on this channel)
+    hdr = eventobj.eventcontent.header
+    if hdr.nexthop != MessageDestinationIdentifiers.LINKLAYERBROADCAST:
+      if hdr.interfaceid == self.componentinstancenumber:
+        #print(f"Will forward message since {hdr.interfaceid} and {self.componentinstancenumber}")
+        myevent = Event(eventobj.eventsource, ChannelEventTypes.INCH, eventobj.eventcontent)
+        self.channelqueue.put_nowait(myevent)
+      else:
+        #print(f"Will drop message since {hdr.interfaceid} and {self.componentinstancenumber}")
+        pass
+
 
   def on_process_in_channel(self, eventobj: Event):
     if random.random() < self.prob:

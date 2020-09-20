@@ -66,7 +66,7 @@ class ChandyLamportSnapshot(ComponentModel):
     hdr = SnapshotsMessageHeader(SnapshotsMessageTypes.MARKER, whosends, destination, nexthop,
                                  self.uniquebroadcastidentifier)
     self.uniquebroadcastidentifier = self.uniquebroadcastidentifier + 1
-    print(f"\n{self.componentinstancenumber} will broadcast {hdr.messagetype} ")
+    #print(f"\n{self.componentinstancenumber} will broadcast {hdr.messagetype} ")
     payload = applmsg
     broadcastmessage = GenericMessage(hdr, payload)
     self.send_down(Event(self, EventTypes.MFRT, broadcastmessage))
@@ -111,14 +111,15 @@ class ChandyLamportSnapshot(ComponentModel):
     ch = eventobj.fromchannel
     if ch in self.marker:
       if hdr.messagetype == SnapshotsMessageTypes.MARKER:
-        print(
-          f"{self.componentname}:{self.componentinstancenumber} The message comes from {eventobj.fromchannel}")
+        #print(f"{self.componentname}:{self.componentinstancenumber} The message comes from {eventobj.fromchannel}")
         self.take_local_snapshot()
         self.marker[ch] = True
-        print(f"I am {self.componentinstancenumber} and my markers={self.marker}")
+        #print(f"I am {self.componentinstancenumber} and my markers={self.marker}")
         res = all(self.marker.values())  # Test Boolean Value of Dictionary
         if res:
           print(f"{self.componentinstancenumber} TERMINATED")
+          print(Topology().nodecolors)
+          self.update_topology()
           #self.terminate()
           # terminate
       else:

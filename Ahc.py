@@ -55,11 +55,12 @@ class GenericMessagePayload:
     self.messagepayload = messagepayload
 
 class GenericMessageHeader:
-  def __init__(self, messagetype, messagefrom, messageto, nexthop=float('inf'), sequencenumber=-1):
+  def __init__(self, messagetype, messagefrom, messageto, nexthop=float('inf'), interfaceid=float('inf'), sequencenumber=-1):
     self.messagetype = messagetype
     self.messagefrom = messagefrom
     self.messageto = messageto
     self.nexthop = nexthop
+    self.interfaceid = interfaceid
     self.sequencenumber = sequencenumber
 
 class GenericMessage:
