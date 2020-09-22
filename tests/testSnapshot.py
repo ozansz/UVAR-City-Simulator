@@ -42,7 +42,7 @@ def main():
   # plt.draw()
   # G = nx.random_geometric_graph(5, 0.95)
 
-  G = nx.gnp_random_graph(30, 0.2, directed=True)
+  G = nx.gnp_random_graph(10, 0.2, directed=True)
   topo = Topology()
   topo.construct_from_graph(G, AdHocNode, P2PFIFOPerfectChannel)
   #  for ch in topo.channels:
