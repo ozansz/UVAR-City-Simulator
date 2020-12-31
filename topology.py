@@ -66,6 +66,8 @@ class City(object):
                 #print(f"Car #{car.car_id} {car.segment} {100 * car.segment_loc/car.segment_len}% ({car.segment_loc}/{car.segment_len})")
 
     def plot(self):
+        ax = plt.gca()
+
         self.topology.plot()
 
         for car in self.cars.values():
@@ -81,7 +83,13 @@ class City(object):
             else:
                 car_coord[0] += _step
 
-            plt.plot(car_coord[0], car_coord[1], car.car_color + "o")
+
+            ax.add_patch(plt.Circle(car_coord, radius=.1, color=car.car_color))
+            ax.annotate(car.car_id, xy=car_coord, fontsize=8, color="white", #ha="center")
+                verticalalignment='center', horizontalalignment='center')
+
+            #plt.plot(car_coord[0], car_coord[1], car.car_color + "o")
+            #plt.text(car_coord[0], car_coord[1], car.car_id, fontsize=10)
 
     def show_plot(self):
         plt.show()
