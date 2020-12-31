@@ -3,12 +3,15 @@ import random
 import numpy as np
 from PIL import Image
 import networkx as nx
+from progress.bar import Bar
 import matplotlib.pyplot as plt
 
 class City(object):
     CAR_COLORS = ["b", "g", "r", "c", "m", "y", "k"]
 
     def __init__(self, num_cars: int, topology_rank: int):
+        plt.rcParams["figure.figsize"] = (2 * topology_rank, 2 * topology_rank)
+
         self.topology = SquareGridRoadTopology(topology_rank, random_weights=True)
 
         self.cars = dict()
@@ -36,7 +39,7 @@ class City(object):
 
             self.cars[i] = Car(car_id=i, segment=random_segment,
                 segment_loc=random_segment_point, segment_len=segment_len,
-                car_velocity=random.randint(2, 10) / 20, car_color=self.CAR_COLORS[i % len(self.CAR_COLORS)],
+                car_velocity=random.randint(2, 10) / 10, car_color=self.CAR_COLORS[i % len(self.CAR_COLORS)],
                 car_coord=car_coord, car_direction_positive=car_direction_positive,
                 car_direction_horizontal=car_direction_horizontal, segment_end_coord=segment_end_coord)
 
@@ -84,21 +87,25 @@ class City(object):
         plt.show()
 
     def save_simualtion_gif(self, steps: int):
-        images = list()
+        with Bar("Processing", max=steps+1) as bar:
+            images = list()
 
-        for _ in range(steps):
-            plt.clf()
+            for _ in range(steps):
+                plt.clf()
 
-            self.plot()
+                self.plot()
 
-            buf = io.BytesIO()
-            plt.savefig(buf, format="png")
-            buf.seek(0)
-            images.append(Image.open(buf))
+                buf = io.BytesIO()
+                plt.savefig(buf, format="png")
+                buf.seek(0)
+                images.append(Image.open(buf))
 
-            self.simulation_step()
+                self.simulation_step()
 
-        images[0].save("out.gif", save_all=True, append_images=images)
+                bar.next()
+
+            images[0].save("out.gif", save_all=True, append_images=images)
+            bar.next()
 
 class Car(object):
     def __init__(self, car_id: int, segment: tuple, segment_loc: int, segment_len: int, car_velocity: int, car_color: str, car_coord: tuple, car_direction_positive: bool, car_direction_horizontal: bool, segment_end_coord: tuple):
