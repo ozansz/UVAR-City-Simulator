@@ -36,7 +36,7 @@ class City(object):
 
             self.cars[i] = Car(car_id=i, segment=random_segment,
                 segment_loc=random_segment_point, segment_len=segment_len,
-                car_velocity=random.randint(1, 3), car_color=self.CAR_COLORS[i % len(self.CAR_COLORS)],
+                car_velocity=random.randint(2, 10) / 20, car_color=self.CAR_COLORS[i % len(self.CAR_COLORS)],
                 car_coord=car_coord, car_direction_positive=car_direction_positive,
                 car_direction_horizontal=car_direction_horizontal, segment_end_coord=segment_end_coord)
 
