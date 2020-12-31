@@ -1,5 +1,5 @@
 import sys
-from topology import City
+from simulation import City
 
 if __name__ == "__main__":
     cars = int(sys.argv[1]) 
