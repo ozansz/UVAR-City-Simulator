@@ -85,6 +85,12 @@ class City(object):
                 car.simulation_step()
                 #print(f"Car #{car.car_id} {car.segment} {100 * car.segment_loc/car.segment_len}% ({car.segment_loc}/{car.segment_len})")
 
+        for uav in self.uavs.values():
+            contact_uavs = [k for k, v in self.uavs.items() if (v.uav_id != uav.uav_id) and (uav.distance_to(v.coord) <= uav.radius_of_operation)]
+            contact_cars = [k for k, v in self.cars.items() if uav.distance_to(v.car_coord) <= uav.radius_of_operation]
+
+            uav.update_contacts(contact_cars, contact_uavs)
+
     def plot(self):
         ax = plt.gca()
 
@@ -110,6 +116,18 @@ class City(object):
             #plt.plot(car_coord[0], car_coord[1], car.car_color + "o")
             #plt.text(car_coord[0], car_coord[1], car.car_id, fontsize=10)
 
+        uav_plot_pairs = list()
+
+        for uav in self.uavs.values():
+            for car_id in uav.cars_in_contact:
+                _car = self.cars[car_id]
+                plt.plot([uav.coord[0], _car.car_coord[0]], [uav.coord[1], _car.car_coord[1]], "r--")
+            for uav_id in uav.uavs_in_contact:
+                if ((uav_id, uav.uav_id) not in uav_plot_pairs) and (((uav.uav_id, uav_id) not in uav_plot_pairs)):
+                    _uav = self.uavs[uav_id]
+                    plt.plot([uav.coord[0], _uav.coord[0]], [uav.coord[1], _uav.coord[1]], "b--")
+                    uav_plot_pairs.append((uav.uav_id, uav_id))
+
         for uav in self.uavs.values():
             ax.add_patch(plt.Circle(uav.coord, radius=.25, color=uav.uav_color, zorder=1000))
             ax.annotate(uav.uav_id, xy=uav.coord, fontsize=13, color="white", #ha="center")
@@ -125,6 +143,7 @@ class City(object):
             for _ in range(steps):
                 plt.clf()
 
+                self.simulation_step()
                 self.plot()
 
                 buf = io.BytesIO()
@@ -132,7 +151,6 @@ class City(object):
                 buf.seek(0)
                 images.append(Image.open(buf))
 
-                self.simulation_step()
 
                 bar.next()
 
