@@ -1,4 +1,5 @@
 import io
+import math
 import random
 import numpy as np
 from PIL import Image
@@ -7,8 +8,13 @@ import matplotlib.pyplot as plt
 
 from topology import SquareGridRoadTopology
 
+UAV_RADIUS = 2.15
+UAV_DISP_RANGE = (.0, .1)
+UAV_REPOSITION_THRESH = .15
+UAV_REPOSITION_STEP = .05
+UAV_DISP_RANDOMNESS = .3
 class City(object):
-    CAR_COLORS = ["b", "g", "r", "c", "m", "y", "k"]
+    CAR_COLORS = ["b", "g", "c", "m", "y", "k", "b"]
 
     def __init__(self, num_cars: int, topology_rank: int):
         plt.figure(figsize=(max(1.5 * topology_rank, 12), max(1.5 * topology_rank, 12)))
@@ -45,7 +51,19 @@ class City(object):
                 car_coord=car_coord, car_direction_positive=car_direction_positive,
                 car_direction_horizontal=car_direction_horizontal, segment_end_coord=segment_end_coord)
 
+        self.uavs = dict()
+        _uav_index = 0
+
+        for i in range(1, 2*(topology_rank-1), 2):
+            for j in range(1, 2*(topology_rank-1), 2):
+                self.uavs[_uav_index] = UAV(_uav_index, (i, j), UAV_RADIUS, UAV_DISP_RANGE,
+                    self.CAR_COLORS[i % len(self.CAR_COLORS)])
+                _uav_index += 1
+
     def simulation_step(self):
+        for uav in self.uavs.values():
+            uav.simulation_step()
+
         for car in self.cars.values():
             if car.reached_segment_end:
                 # No explicit looping
@@ -92,6 +110,11 @@ class City(object):
             #plt.plot(car_coord[0], car_coord[1], car.car_color + "o")
             #plt.text(car_coord[0], car_coord[1], car.car_id, fontsize=10)
 
+        for uav in self.uavs.values():
+            ax.add_patch(plt.Circle(uav.coord, radius=.25, color=uav.uav_color, zorder=1000))
+            ax.annotate(uav.uav_id, xy=uav.coord, fontsize=13, color="white", #ha="center")
+                verticalalignment='center', horizontalalignment='center', zorder=1001)
+
     def show_plot(self):
         plt.show()
 
@@ -115,6 +138,52 @@ class City(object):
 
             images[0].save("out.gif", save_all=True, append_images=images)
             bar.next()
+
+class UAV(object):
+    def __init__(self, uav_id: int, coord: tuple, radius_of_operation: float, random_displacement_range: tuple, uav_color: str):
+        self._origin_coord = coord
+        self.uav_id = uav_id
+        self.coord = list(coord)
+        self.radius_of_operation = radius_of_operation
+        self.random_displacement_range = random_displacement_range
+        self.uav_color = uav_color
+
+        self.state_reposition = False
+
+        self.cars_in_contact = list()
+        self.uavs_in_contact = list()
+
+    def update_contacts(self, cars: list, uavs: list):
+        self.cars_in_contact = cars
+        self.uavs_in_contact = uavs
+
+    def simulation_step(self):
+        if self.state_reposition or (self.distance_to(self._origin_coord) >= UAV_REPOSITION_THRESH):
+            self.state_reposition = True
+
+            if self.coord[0] - self._origin_coord[0] < 0:
+                self.coord[0] += UAV_REPOSITION_STEP
+            else:
+                self.coord[0] -= UAV_REPOSITION_STEP
+
+            if self.coord[1] - self._origin_coord[1] < 0:
+                self.coord[1] += UAV_REPOSITION_STEP
+            else:
+                self.coord[1] -= UAV_REPOSITION_STEP
+
+            if self.distance_to(self._origin_coord) < UAV_REPOSITION_THRESH:
+                self.state_reposition = False
+        else:
+            if (random.randint(0, 100) / 100) >= UAV_DISP_RANDOMNESS:
+                random_angle = random.randint(0, 360)
+                random_angle *= (math.pi / 180)
+                random_disp = random.randint(int(self.random_displacement_range[0] * 1000), int(self.random_displacement_range[1] * 1000)) / 1000
+
+                self.coord[0] += math.cos(random_angle) * random_disp
+                self.coord[1] += math.sin(random_angle) * random_disp
+
+    def distance_to(self, coord: tuple):
+        return ((self.coord[0] - coord[0])**2 + (self.coord[1] - coord[1])**2)**.5
 
 class Car(object):
     def __init__(self, car_id: int, segment: tuple, segment_loc: int, segment_len: int, car_velocity: int, car_color: str, car_coord: tuple, car_direction_positive: bool, car_direction_horizontal: bool, segment_end_coord: tuple):
