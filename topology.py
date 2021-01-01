@@ -3,6 +3,9 @@ import random
 import networkx as nx
 import matplotlib.pyplot as plt
 
+RANDOM_WEIGHT_MIN = 4
+RANDOM_WEIGHT_MAX = 10
+
 class SquareGridRoadTopology(object):
     def __init__(self, num_nodes_side: int, random_weights: bool = False):
         self.num_nodes_side = num_nodes_side
@@ -109,7 +112,7 @@ class SquareGridRoadTopology(object):
         weight_generator = lambda: 1
 
         if random_weights:
-            weight_generator = lambda:  random.randint(1, 10)
+            weight_generator = lambda:  random.randint(RANDOM_WEIGHT_MIN, RANDOM_WEIGHT_MAX)
 
         n = num_nodes_side**2
         M = [[0 for _ in range(n)] for _ in range(n)]

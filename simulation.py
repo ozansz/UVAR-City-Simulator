@@ -15,7 +15,7 @@ UAV_REPOSITION_STEP = .05
 UAV_DISP_RANDOMNESS = .3
 
 CAR_CONTACT_SEGMENT_RANGE = 2
-CAR_CONTACT_RADIUS = 4.5
+CAR_CONTACT_RADIUS = 1.5
 
 class City(object):
     CAR_COLORS = ["b", "g", "c", "m", "y", "k", "b"]
