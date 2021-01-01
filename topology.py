@@ -38,6 +38,16 @@ class SquareGridRoadTopology(object):
     def road_segments(self):
         return list(nx.get_edge_attributes(self.G, 'weight').keys())
 
+    @property
+    def unique_road_segments(self):
+        sss = list()
+
+        for s in self.road_segments:
+            if s not in sss and (s[1], s[0]) not in sss:
+                sss.append(s)
+
+        return sss
+
     def neighbor_segments_to(self, segment: tuple):
         return [elem for elem in self.road_segments if elem[0] == segment[1]]
 

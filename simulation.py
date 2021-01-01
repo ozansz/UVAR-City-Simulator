@@ -1,11 +1,13 @@
 import io
 import math
+import pickle
 import random
 import numpy as np
 from PIL import Image
 import networkx as nx
 from progress.bar import Bar
 import matplotlib.pyplot as plt
+from datetime import datetime as dt
 
 from topology import SquareGridRoadTopology
 
@@ -16,9 +18,11 @@ UAV_REPOSITION_STEP = .05
 UAV_DISP_RANDOMNESS = .3
 
 CAR_CONTACT_SEGMENT_RANGE = 5 # Just for opposition check
-CAR_CONTACT_RANGE_AS_ROAD_UNITS = 4
-ROAD_SLICING_RANGE = CAR_CONTACT_RANGE_AS_ROAD_UNITS
+CAR_CONTACT_RANGE_AS_ROAD_UNITS = 5
+ROAD_SLICING_RANGE = 4
 SEGMENT_LENS = 12
+
+square_distance = lambda x1, y1, x2, y2: ((x1 - x2)**2 + (y1 - y2)**2)**.5
 
 class City(object):
     CAR_COLORS = ["b", "g", "c", "m", "y", "k", "b"]
@@ -26,6 +30,9 @@ class City(object):
     def __init__(self, num_cars: int, topology_rank: int):
         plt.figure(figsize=(max(1.5 * topology_rank, 12), max(1.5 * topology_rank, 12)))
         #plt.rcParams["figure.figsize"] = (1.5 * topology_rank, 1.5 * topology_rank)
+
+        self.num_cars = num_cars
+        self.topology_rank = topology_rank
 
         self.topology = SquareGridRoadTopology(topology_rank, random_weights=False, constant_weight=SEGMENT_LENS)
 
@@ -67,6 +74,127 @@ class City(object):
                     self.CAR_COLORS[i % len(self.CAR_COLORS)])
                 _uav_index += 1
 
+    def _real_coord_of_joint(self, joint_id: int):
+        return (self.topology._G_pos[joint_id][0] * SEGMENT_LENS / 2, self.topology._G_pos[joint_id][1] * SEGMENT_LENS / 2)
+
+    def _cars_in_segment(self, segment: tuple):
+        car_ids = []
+
+        for car_id, car in self.cars.items():
+            if car.segment == segment or car.segment == (segment[1], segment[0]):
+                car_ids.append(car_id)
+
+        return car_ids
+
+    def sorted_table_of_density(self, segment: tuple):
+        assets = [
+            (self._real_coord_of_joint(segment[0]), "i", segment[0]),
+            (self._real_coord_of_joint(segment[1]), "i", segment[1]),
+        ]
+
+        assets += [(self.cars[car_id].real_coord, "c", car_id) for car_id in self._cars_in_segment(segment)]
+
+        if self.topology.is_segment_horizontal(segment):
+            assets = sorted(assets, key=lambda x: x[0][0])
+        else:
+            assets = sorted(assets, key=lambda x: x[0][1])
+
+        return assets
+
+    def segment_connectedness(self, segment):
+        rv_over_dists = []
+        tod = self.sorted_table_of_density(segment)
+
+        for i in range(len(tod)-1):
+            ent_i = tod[i]
+            ent_i_plus_1 = tod[i+1]
+
+            if ent_i[0][0] == ent_i_plus_1[0][0] and ent_i[0][1] == ent_i_plus_1[0][1]:
+                sq_dist = CAR_CONTACT_RANGE_AS_ROAD_UNITS
+            else:
+                sq_dist = square_distance(ent_i[0][0], ent_i[0][1], ent_i_plus_1[0][0], ent_i_plus_1[0][1])
+
+            rod = CAR_CONTACT_RANGE_AS_ROAD_UNITS / sq_dist
+            rv_over_dists.append(math.floor(rod))
+            #rv_over_dists.append(rod)
+
+        mult = 1
+
+        for x in rv_over_dists:
+            mult *= x
+
+        return abs(mult)
+
+    def _num_cars_in_segment_areas(self, segment: tuple):
+        if segment[0] > segment[1]:
+            segment = (segment[1], segment[0]) # Normalize
+
+        car_ids = self._cars_in_segment(segment)
+        area_freqs = dict()
+
+        if self.topology.is_segment_horizontal(segment):
+            lower_x_coord = self._real_coord_of_joint(segment[0])[0]
+            upper_x_coord = lower_x_coord + ROAD_SLICING_RANGE
+            upper_x_coord_max = self._real_coord_of_joint(segment[1])[0]
+
+            area_index = 0
+            added_ids = set()
+
+            while upper_x_coord < (upper_x_coord_max + ROAD_SLICING_RANGE):
+                area_freqs[area_index] = 0
+
+                for car_id in car_ids:
+                    if lower_x_coord <= self.cars[car_id].real_coord[0] <= upper_x_coord:
+                        area_freqs[area_index] += 1
+
+                        added_ids.add(car_id)
+                
+                for car_id in added_ids:
+                    car_ids.remove(car_id)
+
+                lower_x_coord = upper_x_coord
+                upper_x_coord = lower_x_coord + ROAD_SLICING_RANGE
+
+                added_ids = set()
+                area_index += 1
+        else:
+            lower_y_coord = self._real_coord_of_joint(segment[0])[1]
+            upper_y_coord = lower_y_coord + ROAD_SLICING_RANGE
+            upper_y_coord_max = self._real_coord_of_joint(segment[1])[1]
+
+            area_index = 0
+            added_ids = set()
+
+            while upper_y_coord < (upper_y_coord_max + ROAD_SLICING_RANGE):
+                area_freqs[area_index] = 0
+
+                for car_id in car_ids:
+                    if lower_y_coord <= self.cars[car_id].real_coord[1] <= upper_y_coord:
+                        area_freqs[area_index] += 1
+
+                        added_ids.add(car_id)
+                
+                for car_id in added_ids:
+                    car_ids.remove(car_id)
+
+                lower_y_coord = upper_y_coord
+                upper_y_coord = lower_y_coord + ROAD_SLICING_RANGE
+
+                added_ids = set()
+                area_index += 1
+
+        return area_freqs
+
+    def average_num_vehicles_per_area(self, segment: tuple):
+        area_freq = self._num_cars_in_segment_areas(segment)
+        return sum(area_freq.values()) / len(area_freq.keys())
+
+    def std_area_densities(self, segment: tuple):
+        mu = self.average_num_vehicles_per_area(segment)
+        area_freq = self._num_cars_in_segment_areas(segment)
+
+        return (sum([(f - mu)**2 for f in area_freq.values()]) / len(area_freq.keys()))**.5
+
     def simulation_step(self):
         for uav in self.uavs.values():
             uav.simulation_step()
@@ -107,6 +235,13 @@ class City(object):
                     new_contacts.append(_car_id)
 
             car.update_contacts(new_contacts)
+
+        #for unique_segment in self.topology.unique_road_segments:
+        #    print(unique_segment, self.segment_connectedness(unique_segment), self.sorted_table_of_density(unique_segment), self._num_cars_in_segment_areas(unique_segment))
+        #    print()
+        #
+        #print()
+        #print()
 
     def plot(self):
         ax = plt.gca()
@@ -155,12 +290,14 @@ class City(object):
     def show_plot(self):
         plt.show()
 
-    def save_simualtion_gif(self, steps: int, filename: str = "out.gif"):
-        with Bar("Processing", max=steps+1) as bar:
+    def save_simlatioon_with_graphics(self, steps: int, filename: str = "out.gif"):
+        with Bar("Processing", max=steps+2) as bar:
             images = list()
             topo_images = list()
 
-            for _ in range(steps):
+            sim_iters = dict()
+
+            for step_index in range(1, steps + 1):
                 plt.clf()
 
                 self.simulation_step()
@@ -179,10 +316,29 @@ class City(object):
                 buf.seek(0)
                 topo_images.append(Image.open(buf))
 
+                step_data = {
+                    "network": self.current_network_topology,
+                    "cars": self.cars,
+                    "uavs": self.uavs,
+                    "metrics": {segment: {
+                        "stod": self.sorted_table_of_density(segment),
+                        "connectedness": self.segment_connectedness(segment),
+                        "anvpa": self.average_num_vehicles_per_area(segment),
+                        "stdds": self.std_area_densities(segment)
+                    } for segment in self.topology.unique_road_segments}
+                }
+
+                sim_iters[step_index] = step_data
+
                 bar.next()
 
             images[0].save(filename, save_all=True, append_images=images)
             topo_images[0].save(f"topology_{filename}", save_all=True, append_images=topo_images)
+            bar.next()
+
+            with open(f"dump_{self.num_cars}_{self.topology_rank}_{str(dt.now().timestamp()).split('.')[0]}.pkl", "wb") as fp:
+                pickle.dump(sim_iters, fp, protocol=pickle.HIGHEST_PROTOCOL)
+
             bar.next()
 
     def plot_network_topology(self):
