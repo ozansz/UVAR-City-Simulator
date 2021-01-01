@@ -13,6 +13,10 @@ UAV_DISP_RANGE = (.0, .1)
 UAV_REPOSITION_THRESH = .15
 UAV_REPOSITION_STEP = .05
 UAV_DISP_RANDOMNESS = .3
+
+CAR_CONTACT_SEGMENT_RANGE = 2
+CAR_CONTACT_RADIUS = 4.5
+
 class City(object):
     CAR_COLORS = ["b", "g", "c", "m", "y", "k", "b"]
 
@@ -91,23 +95,47 @@ class City(object):
 
             uav.update_contacts(contact_cars, contact_uavs)
 
+        for car in self.cars.values():
+            new_contacts = list()
+            knn_segments = self.topology.knn_segments_of(car.segment, k=CAR_CONTACT_SEGMENT_RANGE)
+
+            for _car_id, _car in self.cars.items():
+                if (_car_id != car.car_id) and (_car.segment in knn_segments) and (car.distance_to(_car.car_coord) <= CAR_CONTACT_RADIUS):
+                    new_contacts.append(_car_id)
+
+            car.update_contacts(new_contacts)
+
     def plot(self):
         ax = plt.gca()
 
         self.topology.plot()
 
+        car_plot_pairs = list()
+
         for car in self.cars.values():
-            car_coord = car.car_coord[:]
+            for car_id in car.cars_in_contact:
+                if ((car_id, car.car_id) not in car_plot_pairs) and (((car.car_id, car_id) not in car_plot_pairs)):
+                    _car = self.cars[car_id]
+                    car_coord = _car.plot_coord
+                    self_coord = car.plot_coord
+                    plt.plot([self_coord[0], car_coord[0]], [self_coord[1], car_coord[1]], "g--")
+                    car_plot_pairs.append((car.car_id, car_id))
 
-            if car.car_direction_positive:
-                _step = 0.1
-            else:
-                _step = -0.1
+        uav_plot_pairs = list()
 
-            if car.car_direction_horizontal:
-                car_coord[1] += _step
-            else:
-                car_coord[0] += _step
+        for uav in self.uavs.values():
+            for car_id in uav.cars_in_contact:
+                _car = self.cars[car_id]
+                car_coord = _car.plot_coord
+                plt.plot([uav.coord[0], car_coord[0]], [uav.coord[1], car_coord[1]], "r--")
+            for uav_id in uav.uavs_in_contact:
+                if ((uav_id, uav.uav_id) not in uav_plot_pairs) and (((uav.uav_id, uav_id) not in uav_plot_pairs)):
+                    _uav = self.uavs[uav_id]
+                    plt.plot([uav.coord[0], _uav.coord[0]], [uav.coord[1], _uav.coord[1]], "b--")
+                    uav_plot_pairs.append((uav.uav_id, uav_id))
+
+        for car in self.cars.values():
+            car_coord = car.plot_coord
 
             ax.add_patch(plt.Circle(car_coord, radius=.17, color=car.car_color, zorder=1000))
             ax.annotate(car.car_id, xy=car_coord, fontsize=12, color="white", #ha="center")
@@ -115,18 +143,6 @@ class City(object):
 
             #plt.plot(car_coord[0], car_coord[1], car.car_color + "o")
             #plt.text(car_coord[0], car_coord[1], car.car_id, fontsize=10)
-
-        uav_plot_pairs = list()
-
-        for uav in self.uavs.values():
-            for car_id in uav.cars_in_contact:
-                _car = self.cars[car_id]
-                plt.plot([uav.coord[0], _car.car_coord[0]], [uav.coord[1], _car.car_coord[1]], "r--")
-            for uav_id in uav.uavs_in_contact:
-                if ((uav_id, uav.uav_id) not in uav_plot_pairs) and (((uav.uav_id, uav_id) not in uav_plot_pairs)):
-                    _uav = self.uavs[uav_id]
-                    plt.plot([uav.coord[0], _uav.coord[0]], [uav.coord[1], _uav.coord[1]], "b--")
-                    uav_plot_pairs.append((uav.uav_id, uav_id))
 
         for uav in self.uavs.values():
             ax.add_patch(plt.Circle(uav.coord, radius=.25, color=uav.uav_color, zorder=1000))
@@ -220,6 +236,30 @@ class Car(object):
 
         if segment_loc >= segment_len:
             self.reached_segment_end = True
+
+        self.cars_in_contact = list()
+
+    @property
+    def plot_coord(self):
+        car_coord = self.car_coord[:]
+
+        if self.car_direction_positive:
+            _step = 0.1
+        else:
+            _step = -0.1
+
+        if self.car_direction_horizontal:
+            car_coord[1] += _step
+        else:
+            car_coord[0] += _step
+
+        return car_coord
+
+    def update_contacts(self, cars: list):
+        self.cars_in_contact = cars
+
+    def distance_to(self, coord: tuple):
+        return ((self.car_coord[0] - coord[0])**2 + (self.car_coord[1] - coord[1])**2)**.5
 
     def update(self, next_segment, next_segment_point, new_segment_len, new_direction_positive, new_direction_horizontal, new_car_coord, new_segment_end_coord):
         self.segment = next_segment

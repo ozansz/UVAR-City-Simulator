@@ -47,6 +47,53 @@ class SquareGridRoadTopology(object):
 
         return (self._G_pos[segment[1]][1] - self._G_pos[segment[0]][1]) > 0
 
+    def knn_segments_of(self, segment: tuple, k: int = 1):
+        segs = set(self.knn_directed_segments_of(segment, k=k) + self.knn_directed_segments_of((segment[1], segment[0]), k=k))
+        additionals = set()
+
+        for s in segs:
+            if (s[1], s[0]) not in segs:
+                additionals.add((s[1], s[0]))
+
+        return list(segs.union(additionals))
+
+    def knn_directed_segments_of(self, segment: tuple, k: int = 1):
+        nbs = set()
+
+        if self.is_segment_horizontal(segment):
+            vh_func = self.is_segment_horizontal
+        else:
+            vh_func = self.is_segment_vertical
+
+        #if self.is_segment_positive(segment):
+        #    pn_func = self.is_segment_positive
+        #else:
+        #    pn_func = lambda s: not self.is_segment_positive(s)
+
+        for _ in range(k):
+            if len(nbs) == 0:
+                new_nbs = [s for s in self.neighbor_segments_to(segment) if vh_func(s)]# and pn_func(s) and s != segment]
+
+                if len(new_nbs) == 0:
+                    break
+
+                for s in new_nbs:
+                    nbs.add(s)
+            else:
+                # NOTE: this is too unefficient
+                new_nbs = list()
+
+                for s_ in nbs:
+                    new_nbs += [s for s in self.neighbor_segments_to(s_) if vh_func(s)]# and pn_func(s) and s != segment]
+
+                if len(new_nbs) == 0:
+                    break
+
+                for s in new_nbs:
+                    nbs.add(s)
+
+        return list(nbs)
+
     def plot(self):
         #pos = nx.get_node_attributes(self.G,'pos')
         nx.draw(self.G, self._G_pos, with_labels=True, connectionstyle='arc3, rad = 0.1', node_size=1000, font_size=20)
