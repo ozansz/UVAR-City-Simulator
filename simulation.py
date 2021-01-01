@@ -244,9 +244,9 @@ class Car(object):
         car_coord = self.car_coord[:]
 
         if self.car_direction_positive:
-            _step = 0.1
+            _step = 0.2
         else:
-            _step = -0.1
+            _step = -0.2
 
         if self.car_direction_horizontal:
             car_coord[1] += _step
