@@ -7,9 +7,12 @@ RANDOM_WEIGHT_MIN = 4
 RANDOM_WEIGHT_MAX = 10
 
 class SquareGridRoadTopology(object):
-    def __init__(self, num_nodes_side: int, random_weights: bool = False):
+    def __init__(self, num_nodes_side: int, random_weights: bool = False, constant_weight=None):
+        if constant_weight is None:
+            constant_weight = RANDOM_WEIGHT_MAX
+
         self.num_nodes_side = num_nodes_side
-        self.adj = self.generate_grid_adj(num_nodes_side, random_weights)
+        self.adj = self.generate_grid_adj(num_nodes_side, random_weights=random_weights, constant_weight=constant_weight)
         
         #self.A = np.matrix(self.adj)
         #self.G = nx.from_numpy_matrix(self.A)
@@ -108,8 +111,8 @@ class SquareGridRoadTopology(object):
         #plt.show()
 
     @staticmethod
-    def generate_grid_adj(num_nodes_side: int, random_weights: bool):
-        weight_generator = lambda: 1
+    def generate_grid_adj(num_nodes_side: int, random_weights: bool, constant_weight: int = RANDOM_WEIGHT_MAX):
+        weight_generator = lambda: constant_weight
 
         if random_weights:
             weight_generator = lambda:  random.randint(RANDOM_WEIGHT_MIN, RANDOM_WEIGHT_MAX)

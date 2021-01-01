@@ -14,8 +14,10 @@ UAV_REPOSITION_THRESH = .15
 UAV_REPOSITION_STEP = .05
 UAV_DISP_RANDOMNESS = .3
 
-CAR_CONTACT_SEGMENT_RANGE = 2
-CAR_CONTACT_RADIUS = 1.5
+CAR_CONTACT_SEGMENT_RANGE = 5 # Just for opposition check
+CAR_CONTACT_RANGE_AS_ROAD_UNITS = 4
+ROAD_SLICING_RANGE = CAR_CONTACT_RANGE_AS_ROAD_UNITS
+SEGMENT_LENS = 12
 
 class City(object):
     CAR_COLORS = ["b", "g", "c", "m", "y", "k", "b"]
@@ -24,7 +26,7 @@ class City(object):
         plt.figure(figsize=(max(1.5 * topology_rank, 12), max(1.5 * topology_rank, 12)))
         #plt.rcParams["figure.figsize"] = (1.5 * topology_rank, 1.5 * topology_rank)
 
-        self.topology = SquareGridRoadTopology(topology_rank, random_weights=True)
+        self.topology = SquareGridRoadTopology(topology_rank, random_weights=False, constant_weight=SEGMENT_LENS)
 
         self.cars = dict()
         _road_segments = self.topology.road_segments
@@ -100,7 +102,7 @@ class City(object):
             knn_segments = self.topology.knn_segments_of(car.segment, k=CAR_CONTACT_SEGMENT_RANGE)
 
             for _car_id, _car in self.cars.items():
-                if (_car_id != car.car_id) and (_car.segment in knn_segments) and (car.distance_to(_car.car_coord) <= CAR_CONTACT_RADIUS):
+                if (_car_id != car.car_id) and (_car.segment in knn_segments) and (car.real_distance_to(_car) <= CAR_CONTACT_RANGE_AS_ROAD_UNITS):
                     new_contacts.append(_car_id)
 
             car.update_contacts(new_contacts)
@@ -232,6 +234,8 @@ class Car(object):
         self.car_direction_horizontal = car_direction_horizontal
         self.segment_end_coord = segment_end_coord
 
+        self.real_coord = [self.car_coord[0] * self.segment_len / 2, self.car_coord[1] * self.segment_len / 2]
+
         self.reached_segment_end = False
 
         if segment_loc >= segment_len:
@@ -258,8 +262,8 @@ class Car(object):
     def update_contacts(self, cars: list):
         self.cars_in_contact = cars
 
-    def distance_to(self, coord: tuple):
-        return ((self.car_coord[0] - coord[0])**2 + (self.car_coord[1] - coord[1])**2)**.5
+    def real_distance_to(self, car):
+        return ((self.real_coord[0] - car.real_coord[0])**2 + (self.real_coord[1] - car.real_coord[1])**2)**.5
 
     def update(self, next_segment, next_segment_point, new_segment_len, new_direction_positive, new_direction_horizontal, new_car_coord, new_segment_end_coord):
         self.segment = next_segment
@@ -269,6 +273,8 @@ class Car(object):
         self.car_direction_horizontal = new_direction_horizontal
         self.car_coord = new_car_coord
         self.segment_end_coord = new_segment_end_coord
+
+        self.real_coord = [self.car_coord[0] * self.segment_len / 2, self.car_coord[1] * self.segment_len / 2]
 
         self.reached_segment_end = False
 
@@ -282,6 +288,7 @@ class Car(object):
             if self.segment_loc >= self.segment_len:
                 self.reached_segment_end = True
                 self.car_coord = self.segment_end_coord
+                self.real_coord = [self.car_coord[0] * self.segment_len / 2, self.car_coord[1] * self.segment_len / 2]
             else:
                 if self.car_direction_positive:
                     _step = 2 * self.car_velocity / self.segment_len
@@ -292,3 +299,5 @@ class Car(object):
                     self.car_coord[0] += _step
                 else:
                     self.car_coord[1] += _step
+
+                self.real_coord = [self.car_coord[0] * self.segment_len / 2, self.car_coord[1] * self.segment_len / 2]
