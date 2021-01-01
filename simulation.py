@@ -3,6 +3,7 @@ import math
 import random
 import numpy as np
 from PIL import Image
+import networkx as nx
 from progress.bar import Bar
 import matplotlib.pyplot as plt
 
@@ -157,6 +158,7 @@ class City(object):
     def save_simualtion_gif(self, steps: int, filename: str = "out.gif"):
         with Bar("Processing", max=steps+1) as bar:
             images = list()
+            topo_images = list()
 
             for _ in range(steps):
                 plt.clf()
@@ -169,11 +171,57 @@ class City(object):
                 buf.seek(0)
                 images.append(Image.open(buf))
 
+                plt.clf()
+
+                self.plot_network_topology()
+                buf = io.BytesIO()
+                plt.savefig(buf, format="png")
+                buf.seek(0)
+                topo_images.append(Image.open(buf))
 
                 bar.next()
 
             images[0].save(filename, save_all=True, append_images=images)
+            topo_images[0].save(f"topology_{filename}", save_all=True, append_images=topo_images)
             bar.next()
+
+    def plot_network_topology(self):
+        topology = self.current_network_topology
+        pos = nx.circular_layout(topology)
+        nx.draw(topology, pos, with_labels=True, node_size=1000, font_size=15)
+        labels = nx.get_edge_attributes(topology, 'weight')
+        nx.draw_networkx_edge_labels(topology, pos, edge_labels=labels)
+        plt.draw()
+
+    @property
+    def current_network_topology(self):
+        G = nx.Graph()
+
+        for uav_id, uav in self.uavs.items():
+            G.add_node(f"U{uav_id}")#, pos=uav._origin_coord)
+
+        for car_id in self.cars.keys():
+            G.add_node(f"C{car_id}")
+
+        uav_edged_ctr = list()
+        car_edged_ctr = list()
+
+        for uav_id, uav in self.uavs.items():
+            for other_uav_id in uav.uavs_in_contact:
+                if ((uav_id, other_uav_id) not in uav_edged_ctr) and ((other_uav_id, uav_id) not in uav_edged_ctr):
+                    G.add_edge(f"U{uav_id}", f"U{other_uav_id}", weight=uav.distance_to(self.uavs[other_uav_id].coord)*SEGMENT_LENS/2)
+                    uav_edged_ctr.append((uav_id, other_uav_id))
+
+            for car_id in uav.cars_in_contact:
+                G.add_edge(f"U{uav_id}", f"C{car_id}", weight=uav.distance_to(self.cars[car_id].car_coord)*SEGMENT_LENS/2)
+
+        for car_id, car in self.cars.items():
+            for other_car_id in car.cars_in_contact:
+                if ((car_id, other_car_id) not in car_edged_ctr) and ((other_car_id, car_id) not in car_edged_ctr):
+                    G.add_edge(f"C{car_id}", f"C{other_car_id}", weight=car.real_distance_to(self.cars[other_car_id]))
+                    car_edged_ctr.append((car_id, other_car_id))
+
+        return G
 
 class UAV(object):
     def __init__(self, uav_id: int, coord: tuple, radius_of_operation: float, random_displacement_range: tuple, uav_color: str):
