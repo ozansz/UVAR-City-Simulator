@@ -1,6 +1,8 @@
 # Custom
 *.gif
 *.png
+*.mp4
+.DS_Store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

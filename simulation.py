@@ -152,7 +152,7 @@ class City(object):
     def show_plot(self):
         plt.show()
 
-    def save_simualtion_gif(self, steps: int):
+    def save_simualtion_gif(self, steps: int, filename: str = "out.gif"):
         with Bar("Processing", max=steps+1) as bar:
             images = list()
 
@@ -170,7 +170,7 @@ class City(object):
 
                 bar.next()
 
-            images[0].save("out.gif", save_all=True, append_images=images)
+            images[0].save(filename, save_all=True, append_images=images)
             bar.next()
 
 class UAV(object):
