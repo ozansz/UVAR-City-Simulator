@@ -21,6 +21,7 @@ CAR_CONTACT_SEGMENT_RANGE = 5 # Just for opposition check
 CAR_CONTACT_RANGE_AS_ROAD_UNITS = 5
 ROAD_SLICING_RANGE = 4
 SEGMENT_LENS = 12
+CAR_NEAR_INTERSECTION_THRESH = 1
 
 SPARSE_INTERVAL_RECT_HEIGHT_WIDTH = .5
 
@@ -62,7 +63,7 @@ class City(object):
             else:
                 car_coord[1] += _step
 
-            self.cars[i] = Car(car_id=i, segment=random_segment,
+            self.cars[i] = Car(self, car_id=i, segment=random_segment,
                 segment_loc=random_segment_point, segment_len=segment_len,
                 car_velocity=random.randint(2, 10) / 10, car_color=self.CAR_COLORS[i % len(self.CAR_COLORS)],
                 car_coord=car_coord, car_direction_positive=car_direction_positive,
@@ -73,7 +74,7 @@ class City(object):
 
         for i in range(1, 2*(topology_rank-1), 2):
             for j in range(1, 2*(topology_rank-1), 2):
-                self.uavs[_uav_index] = UAV(_uav_index, (i, j), UAV_RADIUS, UAV_DISP_RANGE,
+                self.uavs[_uav_index] = UAV(self, _uav_index, (i, j), UAV_RADIUS, UAV_DISP_RANGE,
                     self.CAR_COLORS[i % len(self.CAR_COLORS)])
                 _uav_index += 1
 
@@ -222,7 +223,14 @@ class City(object):
 
         return (sum([(f - mu)**2 for f in area_freq.values()]) / len(area_freq.keys()))**.5
 
-    def score_g(self, segment: tuple, Dw: float):
+    def score_g(self, segment: tuple, target_section: tuple):
+        Dw1 = nx.shortest_path_length(self.topology.G, source=segment[0], target=target_section[0])
+        Dw2 = nx.shortest_path_length(self.topology.G, source=segment[0], target=target_section[1])
+        Dw3 = nx.shortest_path_length(self.topology.G, source=segment[1], target=target_section[0])
+        Dw4 = nx.shortest_path_length(self.topology.G, source=segment[1], target=target_section[1])
+
+        Dw = (Dw1 + Dw2 + Dw3 + Dw4) / 4
+
         return (self.segment_connectedness(segment) * CAR_CONTACT_RANGE_AS_ROAD_UNITS) / ((1 + self.std_area_densities(segment)) * Dw)
 
     def simulation_step(self):
@@ -423,7 +431,8 @@ class City(object):
         return G
 
 class UAV(object):
-    def __init__(self, uav_id: int, coord: tuple, radius_of_operation: float, random_displacement_range: tuple, uav_color: str):
+    def __init__(self, city: City, uav_id: int, coord: tuple, radius_of_operation: float, random_displacement_range: tuple, uav_color: str):
+        self.__city = city
         self._origin_coord = coord
         self.uav_id = uav_id
         self.coord = list(coord)
@@ -469,7 +478,8 @@ class UAV(object):
         return ((self.coord[0] - coord[0])**2 + (self.coord[1] - coord[1])**2)**.5
 
 class Car(object):
-    def __init__(self, car_id: int, segment: tuple, segment_loc: int, segment_len: int, car_velocity: int, car_color: str, car_coord: tuple, car_direction_positive: bool, car_direction_horizontal: bool, segment_end_coord: tuple):
+    def __init__(self, city: City, car_id: int, segment: tuple, segment_loc: int, segment_len: int, car_velocity: int, car_color: str, car_coord: tuple, car_direction_positive: bool, car_direction_horizontal: bool, segment_end_coord: tuple):
+        self.__city = city
         self.car_id = car_id
         self.segment = segment
         self.segment_loc = segment_loc
@@ -489,6 +499,78 @@ class Car(object):
             self.reached_segment_end = True
 
         self.cars_in_contact = list()
+
+    def closest_neighbor_car_to_point2(self, coord: tuple):
+        min_distance = float("inf")
+        min_dist_car_id = None
+
+        for car_id in self.cars_in_contact:
+            car = self.__city.cars[car_id]
+            dist = square_distance(coord[0], coord[1], car.real_coord[0], car.real_coord[1])
+
+            if dist < min_distance:
+                min_distance = dist
+                min_dist_car_id = car_id
+
+        return (min_dist_car_id, min_distance)
+
+    def closest_neighbor_car_to_intersection_point(self, joint_id: int):
+        joint_coord = self.__city._real_coord_of_joint(joint_id)
+
+        min_distance = float("inf")
+        min_dist_car_id = None
+
+        for car_id in self.cars_in_contact:
+            car = self.__city.cars[car_id]
+            dist = square_distance(joint_coord[0], joint_coord[1], car.real_coord[0], car.real_coord[1])
+
+            if dist < min_distance:
+                min_distance = dist
+                min_dist_car_id = car_id
+
+        return (min_dist_car_id, min_distance)
+
+    @property
+    def near_intersection_point(self):
+        joint1_coord = self.__city._real_coord_of_joint(self.segment[0])
+        joint2_coord = self.__city._real_coord_of_joint(self.segment[1])
+
+        if square_distance(self.real_coord[0], self.real_coord[1], joint1_coord[0], joint1_coord[1]) <= CAR_NEAR_INTERSECTION_THRESH:
+            return True
+        
+        if square_distance(self.real_coord[0], self.real_coord[1], joint2_coord[0], joint2_coord[1]) <= CAR_NEAR_INTERSECTION_THRESH:
+            return True
+
+        return False
+
+    @property
+    def nearest_joint(self):
+        joint1_coord = self.__city._real_coord_of_joint(self.segment[0])
+        joint2_coord = self.__city._real_coord_of_joint(self.segment[1])
+
+        dist1 = square_distance(self.real_coord[0], self.real_coord[1], joint1_coord[0], joint1_coord[1])
+        dist2 = square_distance(self.real_coord[0], self.real_coord[1], joint2_coord[0], joint2_coord[1])
+
+        if dist1 < dist2:
+            return (self.segment[0], dist1)
+
+        return (self.segment[1], dist2)
+
+    def next_intersection_to_target_segment(self, target_section: tuple):
+        _seg = self.segment
+
+        if self.nearest_joint != _seg[1]:
+            _seg = (_seg[1], _seg[0])
+
+        next_possible_segments = [s for s in self.__city.topology.neighbor_segments_to(_seg) if s not in [self.segment, (self.segment[1], self.segment[0])]]
+        score_gs = [{"score": self.__city.score_g(seg, target_section), "next_I": seg[1]} for seg in next_possible_segments]
+
+        best_one = sorted(score_gs, key=lambda x: x["score"], reverse=True)[0]      
+
+        if len(best_one) == 0 or best_one["score"] == 0:
+            return None
+
+        return best_one["next_I"] 
 
     @property
     def plot_coord(self):
