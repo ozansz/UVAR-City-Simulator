@@ -22,6 +22,9 @@ CAR_CONTACT_RANGE_AS_ROAD_UNITS = 5
 ROAD_SLICING_RANGE = 4
 SEGMENT_LENS = 12
 
+SPARSE_INTERVAL_RECT_HEIGHT_WIDTH = .5
+
+real_coord_to_plot_coord = lambda t: (t[0] * 2 / SEGMENT_LENS, t[1] * 2 / SEGMENT_LENS)
 square_distance = lambda x1, y1, x2, y2: ((x1 - x2)**2 + (y1 - y2)**2)**.5
 
 class City(object):
@@ -125,6 +128,30 @@ class City(object):
 
         return abs(mult)
 
+    def segment_sparse_intervals(self, segment: tuple):
+        rv_over_dists = []
+        tod = self.sorted_table_of_density(segment)
+
+        for i in range(len(tod)-1):
+            ent_i = tod[i]
+            ent_i_plus_1 = tod[i+1]
+
+            if ent_i[0][0] == ent_i_plus_1[0][0] and ent_i[0][1] == ent_i_plus_1[0][1]:
+                sq_dist = CAR_CONTACT_RANGE_AS_ROAD_UNITS
+            else:
+                sq_dist = square_distance(ent_i[0][0], ent_i[0][1], ent_i_plus_1[0][0], ent_i_plus_1[0][1])
+
+            rod = CAR_CONTACT_RANGE_AS_ROAD_UNITS / sq_dist
+            rv_over_dists.append(math.floor(rod))
+
+        ret = []
+
+        for i in range(len(tod)-1):
+            if rv_over_dists[i] == 0:
+                ret.append((tod[i][0], tod[i+1][0]))
+
+        return ret
+
     def _num_cars_in_segment_areas(self, segment: tuple):
         if segment[0] > segment[1]:
             segment = (segment[1], segment[0]) # Normalize
@@ -195,6 +222,9 @@ class City(object):
 
         return (sum([(f - mu)**2 for f in area_freq.values()]) / len(area_freq.keys()))**.5
 
+    def score_g(self, segment: tuple, Dw: float):
+        return (self.segment_connectedness(segment) * CAR_CONTACT_RANGE_AS_ROAD_UNITS) / ((1 + self.std_area_densities(segment)) * Dw)
+
     def simulation_step(self):
         for uav in self.uavs.values():
             uav.simulation_step()
@@ -247,6 +277,19 @@ class City(object):
         ax = plt.gca()
 
         self.topology.plot()
+
+        for unique_segment in self.topology.unique_road_segments:
+            sparse_intervals = self.segment_sparse_intervals(unique_segment)
+
+            for interval in sparse_intervals:
+                if self.topology.is_segment_horizontal(unique_segment):
+                    int0_coord = real_coord_to_plot_coord(interval[0])
+                    int1_coord = real_coord_to_plot_coord(interval[1])
+                    ax.add_patch(plt.Rectangle((int0_coord[0], int0_coord[1] - (SPARSE_INTERVAL_RECT_HEIGHT_WIDTH / 2)), width=int1_coord[0]-int0_coord[0], height=SPARSE_INTERVAL_RECT_HEIGHT_WIDTH, fc=(1,0,0,0.5), zorder=1000))
+                else:
+                    int0_coord = real_coord_to_plot_coord(interval[0])
+                    int1_coord = real_coord_to_plot_coord(interval[1])
+                    ax.add_patch(plt.Rectangle((int0_coord[0] - (SPARSE_INTERVAL_RECT_HEIGHT_WIDTH / 2), int0_coord[1]), width=SPARSE_INTERVAL_RECT_HEIGHT_WIDTH, height=int1_coord[1]-int0_coord[1], fc=(1,0,0,0.5), zorder=1000))
 
         car_plot_pairs = list()
 
