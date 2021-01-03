@@ -477,6 +477,21 @@ class UAV(object):
     def distance_to(self, coord: tuple):
         return ((self.coord[0] - coord[0])**2 + (self.coord[1] - coord[1])**2)**.5
 
+    def nearest_car_in_section_near_intersection(self, section: tuple, intersection_id: int):
+        min_dist = float("inf")
+        min_dist_car_id = None
+
+        intersection_real_coord = self.__city._real_coord_of_joint(intersection_id)
+
+        for car_id, car in self.cars_in_contact:
+            dist = square_distance(intersection_real_coord[0], intersection_real_coord[1], car.real_coord[0], car.real_coord[1])
+
+            if dist < min_dist:
+                min_dist = dist
+                min_dist_car_id = car_id
+
+        return (min_dist_car_id, min_dist)
+
 class Car(object):
     def __init__(self, city: City, car_id: int, segment: tuple, segment_loc: int, segment_len: int, car_velocity: int, car_color: str, car_coord: tuple, car_direction_positive: bool, car_direction_horizontal: bool, segment_end_coord: tuple):
         self.__city = city
