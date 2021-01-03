@@ -572,6 +572,27 @@ class Car(object):
 
         return best_one["next_I"] 
 
+    def next_intersection_to_target_car(self, car_id: int):
+        return self.next_intersection_to_target_segment(self.__city.cars[car_id].segment)
+
+    def nearest_uav_near_intersection(self, intersection_id: int):
+        min_distance = float("inf")
+        min_dist_uav_id = None
+
+        for uav_id, uav in self.__city.uavs.items():
+            uav_real_coord_x = uav.coord[0] * self.segment_len / 2
+            uav_real_coord_y = uav.coord[1] * self.segment_len / 2
+
+            intersection_real_coord = self.__city._real_coord_of_joint(intersection_id)
+
+            dist = square_distance(uav_real_coord_x, uav_real_coord_y, self.real_coord[0], self.real_coord[1]) + square_distance(uav_real_coord_x, uav_real_coord_y, intersection_real_coord[0], intersection_real_coord[1])
+
+            if dist < min_distance:
+                min_distance = dist
+                min_dist_uav_id = uav_id
+
+        return (min_dist_uav_id, min_distance)
+
     @property
     def plot_coord(self):
         car_coord = self.car_coord[:]
