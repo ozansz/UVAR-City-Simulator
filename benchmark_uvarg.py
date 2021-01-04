@@ -59,6 +59,19 @@ class MetricLogger(object):
         print(self.__packet_matcher)
 
     @property
+    def dump(self):
+        return {
+            "hop_logs": self.__hop_logs,
+            "matched_packets": self.__packet_matcher,
+            "delivered_data_packets": self.__data_delivery,
+            "metrics": {
+                "PDR": self.pdr,
+                "DDR": self.ddr,
+                "HOP": self.avg_hops
+            }
+        }
+
+    @property
     def pdr(self):
         if len(self.__packet_matcher.values()) == 0:
             return None
@@ -72,12 +85,19 @@ class MetricLogger(object):
 
         return sum([1 for val in self.__data_delivery.values() if val]) / len(self.__data_delivery.values())
 
+    #@property
+    #def avg_hops(self):
+    #    if len(self.__packet_matcher.values()) == 0:
+    #        return None
+    #
+    #    return sum(self.__hop_logs.values()) / sum([1 for val in self.__packet_matcher.values() if val])
+
     @property
     def avg_hops(self):
-        if len(self.__packet_matcher.values()) == 0:
+        if len(self.__hop_logs.keys()) == 0:
             return None
 
-        return sum(self.__hop_logs.values()) / sum([1 for val in self.__packet_matcher.values() if val])
+        return sum(self.__hop_logs.values()) / len(self.__hop_logs.keys())
 
 data_packet_identifier_string = lambda data_src, data_dst: f"{data_src}=>{data_dst}"
 
@@ -259,7 +279,7 @@ class ApplicationLayerComponent(ComponentModel):
                     self.uvar_data_packets_on_hold.append((PacketHoldType.INITIAL, dest, data))
                     return
 
-            uav_id = self.mobile_id.nearest_uav_near_intersection(I_next)
+            uav_id = self.mobile_ptr.nearest_uav_near_intersection(I_next)[0]
 
             if uav_id is None:
                 print("[{self.componentinstancenumber}] No neighbor car or UAVs, will hold for a while")
@@ -390,7 +410,7 @@ class UVARGAdHocNode(TickerComponentModel):
     def reprocess_simulation_tick(self):
         self.appllayer.simulation_tick()
 
-def main(transfer_pairs_count: int, cars_count: int, rank: int, simulation_steps: int):
+def gen_and_bench(transfer_pairs_count: int, cars_count: int, rank: int, simulation_steps: int):
     global _TICKS
 
     if not os.path.isdir("./data"):
@@ -482,18 +502,125 @@ def main(transfer_pairs_count: int, cars_count: int, rank: int, simulation_steps
     print(f"HOP: {metric_logger.avg_hops}")
     #metric_logger._debug()
 
+    with open(f"./data/metrics_{cars_count}_{rank}_{simulation_steps}_{str(dt.now().timestamp()).split('.')[0]}.dat", "w") as fp:
+        json.dump(metric_logger.dump, fp)
+
+def read_and_bench(filepath: str, transfer_pairs_count: int):
+    global _TICKS
+
+    with open(filepath, "rb") as fp:
+        objdict = pickle.load(fp)
+    
+    cars_count = len(objdict[1]["cars"])
+    simulation_steps = len(objdict)
+
+    G = objdict[1]["network"]
+    cars_1 = objdict[1]["cars"]
+    uavs_1 = objdict[1]["uavs"]
+
+    topo = Topology()
+    topo.construct_from_graph(G, UVARGAdHocNode, P2PFIFOPerfectChannel)
+
+    for node_id in topo.nodes:
+        if node_id[0] == "U":
+            topo.nodes[node_id].assign_simclass_ptr_to_appllayer(uavs_1[int(node_id[1:])])
+        if node_id[0] == "C":
+            topo.nodes[node_id].assign_simclass_ptr_to_appllayer(cars_1[int(node_id[1:])])
+
+    topo.start()
+
+    #topo.nodes["C50"].initiate_transfer(b"testdata", "C1") # 27
+
+    transfer_pairs = []
+
+    for _ in range(transfer_pairs_count):
+        car1 = random.randint(0, cars_count-1)
+        car2 = random.randint(0, cars_count-1)
+
+        while car1 == car2 or (car1, car2) in transfer_pairs:
+            car1 = random.randint(0, cars_count-1)
+            car2 = random.randint(0, cars_count-1)
+
+        transfer_pairs.append((car1, car2))
+
+    print(transfer_pairs)
+
+    for c1, c2 in transfer_pairs:
+        topo.nodes[f"C{c1}"].initiate_transfer(b"testdata", f"C{c2}")
+
+    try:
+        for i in range(2, len(objdict) + 1):
+            for tps in range(TICKS_PER_SECOND):
+                _TICKS += 1
+
+                print("=" * 15, i - 1, "::", tps + 1, "=" * 15)
+
+                #print("*** rp ticks")
+                for node_tag, adhoc_node in topo.nodes.items():
+                    adhoc_node.reprocess_simulation_tick()
+                
+                #print("*** ticks")
+                for node_tag, adhoc_node in topo.nodes.items():
+                    adhoc_node.simulation_tick()
+
+                time.sleep(SLEEP_PER_TICK)
+
+            #print("*** topo.update")
+            topo.update_graph_edges(objdict[i]["network"])
+
+            #print("*** node.update")
+            for node_id in topo.nodes:
+                if node_id[0] == "U":
+                    new_uav = objdict[i]["uavs"][int(node_id[1:])]
+                    assert topo.nodes[node_id].appllayer.mobile_ptr != new_uav
+                    topo.nodes[node_id].appllayer.mobile_ptr = new_uav
+                if node_id[0] == "C":
+                    new_car = objdict[i]["cars"][int(node_id[1:])]
+                    assert topo.nodes[node_id].appllayer.mobile_ptr != new_car
+                    topo.nodes[node_id].appllayer.mobile_ptr = new_car
+
+            time.sleep(SLEEP_PER_SIM_SEC)
+    except KeyboardInterrupt:
+        pass
+
+    print(f"\nPDR: {metric_logger.pdr}")
+    print(f"DDR: {metric_logger.ddr}")
+    print(f"HOP: {metric_logger.avg_hops}")
+    #metric_logger._debug()
+
+    metrics_save_path = f"./data/metrics_{cars_count}_FILE_{simulation_steps}_{str(dt.now().timestamp()).split('.')[0]}.dat"
+
+    with open(metrics_save_path, "w") as fp:
+        json.dump(metric_logger.dump, fp)
+
+    print(f"[i] Dumped metrics to {metrics_save_path}")
+    print(f"Bye :)")
+
 if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print(f"python3 {sys.argv[0]} <transfer_pairs_count:int> <cars_count:int> <rank:int> <simulation_steps:int>")
+    subcmd = sys.argv[1]
+
+    if len(sys.argv) < 4 or subcmd not in ("gen", "file"):
+        print(f"Usages:")
+        print(f"  python3 {sys.argv[0]} gen <transfer_pairs_count:int> <cars_count:int> <rank:int> <simulation_steps:int>")
+        print(f"  python3 {sys.argv[0]} file <filepath:str> <transfer_pairs_count:int>")
         sys.exit(0)
 
-    transfer_pairs_count = int(sys.argv[1])
-    cars_count = int(sys.argv[2])
-    rank = int(sys.argv[3])
-    simulation_steps = int(sys.argv[4])
+    if subcmd == "gen":
+        transfer_pairs_count = int(sys.argv[2])
+        cars_count = int(sys.argv[3])
+        rank = int(sys.argv[4])
+        simulation_steps = int(sys.argv[5])
 
-    main(
-        transfer_pairs_count=transfer_pairs_count,
-        cars_count=cars_count, rank=rank,
-        simulation_steps=simulation_steps
-    )
+        gen_and_bench(
+            transfer_pairs_count=transfer_pairs_count,
+            cars_count=cars_count, rank=rank,
+            simulation_steps=simulation_steps
+        )
+    elif subcmd == "file":
+        filepath = sys.argv[2]
+        transfer_pairs_count = int(sys.argv[3])
+
+        read_and_bench(
+            filepath=filepath,
+            transfer_pairs_count=transfer_pairs_count
+        )
