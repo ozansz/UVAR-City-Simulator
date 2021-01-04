@@ -19,7 +19,7 @@ from LinkLayers.GenericLinkLayer import LinkLayer
 from Ahc import (TickerComponentModel, ComponentModel, Event,
                                  ConnectorTypes, Topology, ComponentRegistry,
                                  GenericMessagePayload, GenericMessageHeader,
-                                 GenericMessage, EventTypes)
+                                 GenericMessage, EventTypes, MessageDestinationIdentifiers)
 
 registry = ComponentRegistry()
 
