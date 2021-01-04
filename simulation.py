@@ -1,5 +1,6 @@
 import io
 import math
+import copy
 import pickle
 import random
 import numpy as np
@@ -17,10 +18,10 @@ UAV_REPOSITION_THRESH = .15
 UAV_REPOSITION_STEP = .05
 UAV_DISP_RANDOMNESS = .3
 
-CAR_CONTACT_SEGMENT_RANGE = 5 # Just for opposition check
-CAR_CONTACT_RANGE_AS_ROAD_UNITS = 5
+CAR_CONTACT_SEGMENT_RANGE = 10 # Just for opposition check
+CAR_CONTACT_RANGE_AS_ROAD_UNITS = 150
 ROAD_SLICING_RANGE = 4
-SEGMENT_LENS = 12
+SEGMENT_LENS = 300
 CAR_NEAR_INTERSECTION_THRESH = 1
 
 SPARSE_INTERVAL_RECT_HEIGHT_WIDTH = .5
@@ -65,7 +66,7 @@ class City(object):
 
             self.cars[i] = Car(self, car_id=i, segment=random_segment,
                 segment_loc=random_segment_point, segment_len=segment_len,
-                car_velocity=random.randint(2, 10) / 10, car_color=self.CAR_COLORS[i % len(self.CAR_COLORS)],
+                car_velocity=random.randint(1500, 2000) / 100, car_color=self.CAR_COLORS[i % len(self.CAR_COLORS)],
                 car_coord=car_coord, car_direction_positive=car_direction_positive,
                 car_direction_horizontal=car_direction_horizontal, segment_end_coord=segment_end_coord)
 
@@ -369,8 +370,8 @@ class City(object):
 
                 step_data = {
                     "network": self.current_network_topology,
-                    "cars": self.cars,
-                    "uavs": self.uavs,
+                    "cars": copy.deepcopy(self.cars),
+                    "uavs": copy.deepcopy(self.uavs),
                     "metrics": {segment: {
                         "stod": self.sorted_table_of_density(segment),
                         "connectedness": self.segment_connectedness(segment),
@@ -483,7 +484,8 @@ class UAV(object):
 
         intersection_real_coord = self._city._real_coord_of_joint(intersection_id)
 
-        for car_id, car in self.cars_in_contact:
+        for car_id in self.cars_in_contact:
+            car = self._city.cars[car_id]
             dist = square_distance(intersection_real_coord[0], intersection_real_coord[1], car.real_coord[0], car.real_coord[1])
 
             if dist < min_dist:
@@ -545,6 +547,78 @@ class Car(object):
 
         return (min_dist_car_id, min_distance)
 
+    def closest_neighbor_car_to_intersection_point_in_segment(self, joint_id: int, segment: tuple):
+        joint_coord = self._city._real_coord_of_joint(joint_id)
+
+        min_distance = float("inf")
+        min_dist_car_id = None
+
+        for car_id in self.cars_in_contact:
+            car = self._city.cars[car_id]
+
+            if (car.segment == segment) or (car.segment == (segment[1], segment[0])):
+                dist = square_distance(joint_coord[0], joint_coord[1], car.real_coord[0], car.real_coord[1])
+
+                if dist < min_distance:
+                    min_distance = dist
+                    min_dist_car_id = car_id
+
+        return (min_dist_car_id, min_distance)
+
+    def my_section_joint_near_joint(self, j):
+        if square_distance(self._city._real_coord_of_joint(j)[0], self._city._real_coord_of_joint(j)[1], self._city._real_coord_of_joint(self.segment[0])[0], self._city._real_coord_of_joint(self.segment[0])[1]) < square_distance(self._city._real_coord_of_joint(j)[0], self._city._real_coord_of_joint(j)[1], self._city._real_coord_of_joint(self.segment[1])[0], self._city._real_coord_of_joint(self.segment[1])[1]):
+            return self.segment[0]
+        
+        return self.segment[1]
+
+    def near_intersection_point_to_nearest_to_car(self, car_id):
+        car_coords = self._city.cars[car_id].real_coord
+        j0 = self._city._real_coord_of_joint(self.segment[0])
+        j1 = self._city._real_coord_of_joint(self.segment[1])
+
+        if square_distance(car_coords[0], car_coords[1], j0[0], j0[1]) <= square_distance(car_coords[0], car_coords[1], j1[0], j1[1]):
+            if square_distance(self.real_coord[0], self.real_coord[1], j0[0], j0[1]) <= CAR_NEAR_INTERSECTION_THRESH:
+                return True
+        elif square_distance(car_coords[0], car_coords[1], j0[0], j0[1]) >= square_distance(car_coords[0], car_coords[1], j1[0], j1[1]):
+            if square_distance(self.real_coord[0], self.real_coord[1], j1[0], j1[1]) <= CAR_NEAR_INTERSECTION_THRESH:
+                return True
+
+        return False
+
+    def farthest_neighbor_car_to_intersection_point_in_segment(self, joint_id: int, segment: tuple):
+        joint_coord = self._city._real_coord_of_joint(joint_id)
+
+        max_distance = 0
+        dist_car_id = None
+
+        for car_id in self.cars_in_contact:
+            car = self._city.cars[car_id]
+
+            if (car.segment == segment) or (car.segment == (segment[1], segment[0])):
+                dist = square_distance(joint_coord[0], joint_coord[1], car.real_coord[0], car.real_coord[1])
+
+                if dist >= max_distance:
+                    max_distance = dist
+                    dist_car_id = car_id
+
+        return (dist_car_id, max_distance)
+
+    def farthest_neighbor_car_near_intersection_point(self, joint_id):
+        joint_coord = self._city._real_coord_of_joint(joint_id)
+
+        max_distance = float("inf")
+        dist_car_id = None
+
+        for car_id in self.cars_in_contact:
+            car = self._city.cars[car_id]
+            dist = square_distance(joint_coord[0], joint_coord[1], car.real_coord[0], car.real_coord[1])
+
+            if dist < max_distance:
+                max_distance = dist
+                dist_car_id = car_id
+
+        return (dist_car_id, max_distance)
+
     @property
     def near_intersection_point(self):
         joint1_coord = self._city._real_coord_of_joint(self.segment[0])
@@ -572,12 +646,18 @@ class Car(object):
         return (self.segment[1], dist2)
 
     def next_intersection_to_target_segment(self, target_section: tuple):
+        #_seg = self.segment
+#
+        #if self.nearest_joint != _seg[1]:
+        #    _seg = (_seg[1], _seg[0])
+#
+        #next_possible_segments = [s for s in self._city.topology.neighbor_segments_to(_seg) if s not in [self.segment, (self.segment[1], self.segment[0])]]
+        #score_gs = [{"score": self._city.score_g(seg, target_section), "next_I": seg[1]} for seg in next_possible_segments]
+
         _seg = self.segment
-
-        if self.nearest_joint != _seg[1]:
-            _seg = (_seg[1], _seg[0])
-
-        next_possible_segments = [s for s in self._city.topology.neighbor_segments_to(_seg) if s not in [self.segment, (self.segment[1], self.segment[0])]]
+        next_possible_segments = [s for s in self._city.topology.neighbor_segments_to(_seg)]# if s not in [self.segment, (self.segment[1], self.segment[0])]]
+        _seg = (self.segment[1], self.segment[0])
+        next_possible_segments += [s for s in self._city.topology.neighbor_segments_to(_seg)]# if s not in [self.segment, (self.segment[1], self.segment[0])]]
         score_gs = [{"score": self._city.score_g(seg, target_section), "next_I": seg[1]} for seg in next_possible_segments]
 
         best_one = sorted(score_gs, key=lambda x: x["score"], reverse=True)[0]      
@@ -589,6 +669,22 @@ class Car(object):
 
     def next_intersection_to_target_car(self, car_id: int):
         return self.next_intersection_to_target_segment(self._city.cars[car_id].segment)
+
+    def nearest_neighbor_in_segment(self, segment):
+        min_distance = float("inf")
+        min_dist_car_id = None
+
+        for car_id in self.cars_in_contact:
+            car = self._city.cars[car_id]
+
+            if (car.segment == segment) or (car.segment == (segment[1], segment[0])):
+                dist = square_distance(self.real_coord[0], self.real_coord[1], car.real_coord[0], car.real_coord[1])
+
+                if dist < min_distance:
+                    min_distance = dist
+                    min_dist_car_id = car_id
+
+        return (min_dist_car_id, min_distance)
 
     def nearest_uav_near_intersection(self, intersection_id: int):
         min_distance = float("inf")
