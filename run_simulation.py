@@ -10,6 +10,6 @@ if __name__ == "__main__":
     gif_file_name = f"sim_{cars}_{rank}_{steps}.gif"
 
     c = City(cars, rank)
-    c.save_simlatioon_with_graphics(steps, gif_file_name)
+    c.save_simulation_with_graphics(steps, gif_file_name)
 
     os.system(f'ffmpeg -i {gif_file_name} -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" sim_{cars}_{rank}_{steps}.mp4')

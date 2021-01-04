@@ -342,7 +342,7 @@ class City(object):
     def show_plot(self):
         plt.show()
 
-    def save_simlatioon_with_graphics(self, steps: int, filename: str = "out.gif"):
+    def save_simulation_with_graphics(self, steps: int, filename: str = "out.gif", data_out_filename: str = None):
         with Bar("Processing", max=steps+2) as bar:
             images = list()
             topo_images = list()
@@ -388,7 +388,10 @@ class City(object):
             topo_images[0].save(f"topology_{filename}", save_all=True, append_images=topo_images)
             bar.next()
 
-            with open(f"dump_{self.num_cars}_{self.topology_rank}_{str(dt.now().timestamp()).split('.')[0]}.pkl", "wb") as fp:
+            if data_out_filename is None:
+                data_out_filename = f"dump_{self.num_cars}_{self.topology_rank}_{str(dt.now().timestamp()).split('.')[0]}.pkl"
+
+            with open(data_out_filename, "wb") as fp:
                 pickle.dump(sim_iters, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
             bar.next()
