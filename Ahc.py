@@ -8,7 +8,7 @@ from utils import Logger
 import matplotlib.pyplot as plt
 from threading import Thread, Lock
 
-PIPT = 20
+PIPT = 200
 DO_DEBUG = "AHC_DEBUG" in os.environ
 
 from uvar_constructs import UVARMobileType

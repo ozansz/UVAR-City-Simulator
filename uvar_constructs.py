@@ -24,3 +24,20 @@ class UVARMessageTypes(Enum):
 class UVARMobileType:
     CAR = "CAR"
     UAV = "UAV"
+
+class UVARSPacket(object):
+    def __init__(self, packet_type: UVARMessageTypes, destination_id: int, source_id: int, ttl: int = None, uav_id: int = None):
+        self.packet_type = packet_type
+        self.source_id = source_id
+        self.destination_id = destination_id
+        self.ttl = ttl
+        self.uav_id = uav_id
+
+        self.path = []
+    
+    def serialize(self) -> bytes:
+        return pickle.dumps(self)
+
+    @staticmethod
+    def deserialize(data: bytes):
+        return pickle.loads(data)

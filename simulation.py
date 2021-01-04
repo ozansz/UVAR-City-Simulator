@@ -449,6 +449,10 @@ class UAV(object):
         self.cars_in_contact = list()
         self.uavs_in_contact = list()
 
+    @property
+    def real_coord(self):
+        return (self.coord[0] * SEGMENT_LENS / 2, self.coord[1] * SEGMENT_LENS / 2)
+
     def update_contacts(self, cars: list, uavs: list):
         self.cars_in_contact = cars
         self.uavs_in_contact = uavs
