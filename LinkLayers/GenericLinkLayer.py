@@ -23,9 +23,11 @@ class LinkLayer(ComponentModel):
   def on_message_from_top(self, eventobj: Event):
     abovehdr = eventobj.eventcontent.header
     if abovehdr.messageto == MessageDestinationIdentifiers.NETWORKLAYERBROADCAST:
+      print(f"LL {self.componentinstancenumber} will SEND a message to BROADCAST")
       hdr = LinkLayerMessageHeader(LinkLayerMessageTypes.LINKMSG, self.componentinstancenumber,
                                    MessageDestinationIdentifiers.LINKLAYERBROADCAST,nexthop=MessageDestinationIdentifiers.LINKLAYERBROADCAST)
     else:
+      print(f"LL {self.componentinstancenumber} will SEND a message to {abovehdr.messageto} over {abovehdr.nexthop}")
       #if we do not broadcast, use nexthop to determine interfaceid and set hdr.interfaceid
       myinterfaceid = str(self.componentinstancenumber) + "-" + str(abovehdr.nexthop)
       hdr = LinkLayerMessageHeader(LinkLayerMessageTypes.LINKMSG, self.componentinstancenumber,
@@ -40,6 +42,7 @@ class LinkLayer(ComponentModel):
     hdr = msg.header
     payload = msg.payload
     if hdr.messageto == self.componentinstancenumber or hdr.messageto == MessageDestinationIdentifiers.LINKLAYERBROADCAST:
+      print(f"LL I received a message to {hdr.messageto} and I am {self.componentinstancenumber}")
       self.send_up(Event(self, EventTypes.MFRB, payload,
                          eventobj.fromchannel))  # doing decapsulation by just sending the payload
     else:
