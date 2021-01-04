@@ -7,6 +7,7 @@ import pickle
 import networkx as nx
 from enum import Enum
 import matplotlib.pyplot as plt
+from datetime import datetime as dt
 from collections import defaultdict
 
 from uvar_constructs import UVARGPacket, UVARMessageTypes, UVARMobileType
@@ -389,13 +390,20 @@ class UVARGAdHocNode(TickerComponentModel):
     def reprocess_simulation_tick(self):
         self.appllayer.simulation_tick()
 
-def main(transfer_pairs_count: int, data_file: str, cars_count: int):
+def main(transfer_pairs_count: int, cars_count: int, rank: int, simulation_steps: int):
     global _TICKS
 
     if not os.path.isdir("./data"):
         os.mkdir("./data")
 
-    
+    c = City(cars_count, rank)
+
+    gif_file_name = f"./data/sim_{cars_count}_{rank}_{simulation_steps}.gif"
+    data_file = f"./data/sim_{cars_count}_{rank}_{simulation_steps}_{str(dt.now().timestamp()).split('.')[0]}.pkl"
+
+    c.save_simulation_with_graphics(simulation_steps, gif_file_name, data_file)
+
+    os.system(f'ffmpeg -i {gif_file_name} -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" ./data/sim_{cars_count}_{rank}_{simulation_steps}.mp4')
 
     with open(data_file, "rb") as fp:
         objdict = pickle.load(fp)
@@ -476,14 +484,16 @@ def main(transfer_pairs_count: int, data_file: str, cars_count: int):
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
-        print(f"python3 {sys.argv[0]} data_file cars_count transfer_pairs_count")
+        print(f"python3 {sys.argv[0]} <transfer_pairs_count:int> <cars_count:int> <rank:int> <simulation_steps:int>")
         sys.exit(0)
 
-    data_file = sys.argv[1]
+    transfer_pairs_count = int(sys.argv[1])
     cars_count = int(sys.argv[2])
-    transfer_pairs_count = int(sys.argv[3])
+    rank = int(sys.argv[3])
+    simulation_steps = int(sys.argv[4])
 
     main(
         transfer_pairs_count=transfer_pairs_count,
-        data_file=data_file, cars_count=cars_count
+        cars_count=cars_count, rank=rank,
+        simulation_steps=simulation_steps
     )

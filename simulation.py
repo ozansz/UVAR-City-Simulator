@@ -385,7 +385,7 @@ class City(object):
                 bar.next()
 
             images[0].save(filename, save_all=True, append_images=images)
-            topo_images[0].save(f"topology_{filename}", save_all=True, append_images=topo_images)
+            topo_images[0].save(f"{filename}__topology.gif", save_all=True, append_images=topo_images)
             bar.next()
 
             if data_out_filename is None:
